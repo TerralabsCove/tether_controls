@@ -155,12 +155,34 @@ struct MotorRuntime {
 DamiaoMotor motors[tether::kMotorCount] = {
     DamiaoMotor(TETHER_SMALL_MOTOR_SLAVE_ID, TETHER_SMALL_MOTOR_FEEDBACK_ID),
     DamiaoMotor(TETHER_BIG_MOTOR_SLAVE_ID, TETHER_BIG_MOTOR_FEEDBACK_ID),
+    DamiaoMotor(TETHER_THIRD_MOTOR_SLAVE_ID, TETHER_THIRD_MOTOR_FEEDBACK_ID),
 };
 MotorRuntime motor_state[tether::kMotorCount];
 bool motor_bus_ready = false;
 
 const char *motorName(uint8_t motor_index) {
-  return motor_index == tether::kSmallMotor ? "small" : "big";
+  if (motor_index == tether::kSmallMotor) return "small";
+  if (motor_index == tether::kBigMotor) return "big";
+  return "third";
+}
+
+uint8_t motorCountForNode(uint8_t node_id) {
+  return node_id == tether::kMasterId ? 2 : tether::kMotorCount;
+}
+
+bool localMotorIdsConfigured() {
+  if (!TETHER_MOTORS_CONFIGURED) return false;
+  for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m)
+    if (!motors[m].slaveId() || !motors[m].feedbackId()) return false;
+  return true;
+}
+
+bool beginLocalMotors() {
+  for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m)
+    if (!motors[m].begin((gpio_num_t)TETHER_CAN_TX_GPIO,
+                         (gpio_num_t)TETHER_CAN_RX_GPIO,
+                         TETHER_CAN_BITRATE)) return false;
+  return true;
 }
 
 #if TETHER_ROLE == TETHER_ROLE_MASTER
@@ -171,6 +193,7 @@ struct Intent {
 struct Presence {
   uint32_t last_seen_ms = 0;
   int8_t rssi = 0;
+  uint8_t motor_count = 0;
   uint32_t hello_count = 0;
 };
 Intent intents[3][tether::kMotorCount];
@@ -237,7 +260,7 @@ void reportLine(const String &line) {
 
 void printPeers() {
   const uint32_t now = millis();
-  for (uint8_t m = 0; m < tether::kMotorCount; ++m) {
+  for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m) {
     const auto &feedback = motors[m].feedback();
     const auto &limits = motors[m].limits();
     reportLine("LOCAL id=0 motor=" + String(m) + " name=" + motorName(m) +
@@ -256,7 +279,9 @@ void printPeers() {
                   " state=" + (online ? "ONLINE" : "OFFLINE") + " age_ms=";
     line += presence[peer.id].last_seen_ms
                 ? String(now - presence[peer.id].last_seen_ms) : String("never");
-    line += " rssi=" + String(presence[peer.id].rssi) + " mac=" + macString(peer.mac);
+    line += " rssi=" + String(presence[peer.id].rssi) +
+            " motors=" + String(presence[peer.id].motor_count) +
+            " mac=" + macString(peer.mac);
     reportLine(line);
   }
 }
@@ -269,12 +294,12 @@ void parseOperatorCommand(String line) {
   }
   if (line == "peers" || line == "status") { printPeers(); return; }
   if (line == "help") {
-    reportLine("HELP peers | reset N M | enable N M | disable N M | estop | zero N M | pos N M q dq | mit N M q dq tau kp kd; M: 0=small 1=big");
+    reportLine("HELP peers | reset N M | enable N M | disable N M | estop | zero N M | pos N M q dq | mit N M q dq tau kp kd; id 0: M=0..1, ids 1/2: M=0..2");
     return;
   }
   if (line == "estop") {
     for (uint8_t id = 0; id < 3; ++id)
-      for (uint8_t m = 0; m < tether::kMotorCount; ++m) {
+      for (uint8_t m = 0; m < motorCountForNode(id); ++m) {
         intents[id][m].flags |= tether::kEstop;
         intents[id][m].flags &= ~tether::kEnable;
       }
@@ -285,7 +310,9 @@ void parseOperatorCommand(String line) {
   const auto known = [&]() {
     return id == 0 || (id > 0 && id < 3 && peerForId(uint8_t(id)));
   };
-  const auto motorKnown = [&]() { return motor_index >= 0 && motor_index < tether::kMotorCount; };
+  const auto motorKnown = [&]() {
+    return motor_index >= 0 && motor_index < motorCountForNode(uint8_t(id));
+  };
   if (sscanf(line.c_str(), "reset %d %d", &id, &motor_index) == 2 && known() && motorKnown()) {
     auto &x = intents[id][motor_index]; x.reset_cycles = 5;
     x.flags &= ~(tether::kEnable | tether::kEstop);
@@ -343,7 +370,7 @@ void serviceLaptopWatchdog(uint32_t now) {
   if (!last_laptop_ms || now - last_laptop_ms <= TETHER_LAPTOP_WATCHDOG_MS ||
       laptop_watchdog_latched) return;
   for (uint8_t id = 0; id < 3; ++id)
-    for (uint8_t m = 0; m < tether::kMotorCount; ++m) {
+    for (uint8_t m = 0; m < motorCountForNode(id); ++m) {
       intents[id][m].flags |= tether::kEstop;
       intents[id][m].flags &= ~tether::kEnable;
     }
@@ -379,7 +406,7 @@ void serviceLocalMotors() {
   motors[0].poll(48);
   motors[0].recover();
   const uint32_t now_ms = millis(), now_us = micros();
-  for (uint8_t m = 0; m < tether::kMotorCount; ++m) {
+  for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m) {
     auto &motor = motors[m]; auto &state = motor_state[m]; auto &intent = intents[0][m];
     if (!state.enabled && int32_t(now_ms - state.next_probe_ms) >= 0) {
       motor.refresh(); motor.poll(48);
@@ -455,7 +482,16 @@ void processMasterRadio() {
                    macString(configured->mac) + " received=" + macString(packet.source_mac));
         continue;
       }
+      const uint8_t advertised_motor_count =
+          uint8_t((packet.payload.hello.capabilities >> 8) & 0xffu);
+      if (advertised_motor_count != motorCountForNode(id)) {
+        reportLine("CONFIG MISMATCH id=" + String(id) + " expected_motors=" +
+                   String(motorCountForNode(id)) + " reported_motors=" +
+                   String(advertised_motor_count));
+        continue;
+      }
       presence[id].last_seen_ms = millis(); presence[id].rssi = packet.rssi;
+      presence[id].motor_count = advertised_motor_count;
       ++presence[id].hello_count;
       continue;
     }
@@ -465,6 +501,7 @@ void processMasterRadio() {
         packet.length == sizeof(tether::Telemetry) &&
         tether::valid(packet.payload.telemetry, packet.length, tether::kTelemetry)) {
       const auto &t = packet.payload.telemetry;
+      if (t.motor_index >= motorCountForNode(id)) continue;
       presence[id].last_seen_ms = millis(); presence[id].rssi = packet.rssi;
       char line[280];
       snprintf(line, sizeof(line),
@@ -505,13 +542,13 @@ void masterLoop() {
   const bool laptop_online = have_laptop && last_laptop_ms &&
       now - last_laptop_ms <= TETHER_LAPTOP_WATCHDOG_MS;
   if (!laptop_online) return;
-  for (uint8_t m = 0; m < tether::kMotorCount; ++m) applyLocalIntent(m, micros());
+  for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m) applyLocalIntent(m, micros());
   for (size_t i = 0; i < kNodePeerCount; ++i) {
     const auto &peer = kNodePeers[i];
     const bool node_online = presence[peer.id].last_seen_ms &&
         now - presence[peer.id].last_seen_ms <= TETHER_PEER_OFFLINE_MS;
     if (macIsZero(peer.mac) || !node_online) continue;
-    for (uint8_t m = 0; m < tether::kMotorCount; ++m) {
+    for (uint8_t m = 0; m < motorCountForNode(peer.id); ++m) {
       auto &intent = intents[peer.id][m];
       tether::Command command = {};
       command.header.source_id = 0; command.header.target_id = peer.id;
@@ -544,7 +581,7 @@ void sendHello() {
   hello.header.source_id = TETHER_NODE_ID; hello.header.target_id = tether::kBroadcastId;
   hello.header.sequence = ++hello_sequence; hello.header.sent_us = micros();
   hello.uptime_ms = millis();
-  hello.capabilities = 1u | (uint32_t(tether::kMotorCount) << 8);  // TWAI + motor count
+  hello.capabilities = 1u | (uint32_t(TETHER_LOCAL_MOTOR_COUNT) << 8);  // TWAI + motor count
   tether::seal(hello, tether::kHello); sendPacket(kBroadcastMac, hello);
 }
 
@@ -556,7 +593,7 @@ void processNodeRadio() {
         !tether::valid(packet.payload.command, packet.length, tether::kCommand)) continue;
     const auto &candidate = packet.payload.command;
     if (candidate.header.source_id != 0 || candidate.header.target_id != TETHER_NODE_ID) continue;
-    if (candidate.motor_index >= tether::kMotorCount) continue;
+    if (candidate.motor_index >= TETHER_LOCAL_MOTOR_COUNT) continue;
     const uint8_t m = candidate.motor_index;
     auto &state = motor_state[m];
     if (state.have_command) {
@@ -581,7 +618,7 @@ void nodeLoop() {
   if (motor_bus_ready) { motors[0].poll(48); motors[0].recover(); }
   processNodeRadio();
   const uint32_t now_ms = millis(), now_us = micros();
-  for (uint8_t m = 0; m < tether::kMotorCount; ++m) {
+  for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m) {
     auto &motor = motors[m]; auto &state = motor_state[m]; auto &command = commands[m];
     if (motor_bus_ready && !state.enabled && int32_t(now_ms - state.next_probe_ms) >= 0) {
       motor.refresh(); motor.poll(48);
@@ -685,16 +722,9 @@ void setup() {
   Serial.printf("master AP=%s channel=%u IP=%s UDP=%u\n",
                 TETHER_MASTER_AP_SSID, TETHER_ESPNOW_CHANNEL,
                 WiFi.softAPIP().toString().c_str(), TETHER_CONTROL_UDP_PORT);
-  if (!TETHER_MOTORS_CONFIGURED || !TETHER_SMALL_MOTOR_SLAVE_ID ||
-      !TETHER_SMALL_MOTOR_FEEDBACK_ID || !TETHER_BIG_MOTOR_SLAVE_ID ||
-      !TETHER_BIG_MOTOR_FEEDBACK_ID)
+  if (!localMotorIdsConfigured())
     haltConfiguration("configure both id-0 motors before flashing the master", own_mac);
-  motor_bus_ready = motors[0].begin((gpio_num_t)TETHER_CAN_TX_GPIO,
-                                   (gpio_num_t)TETHER_CAN_RX_GPIO,
-                                   TETHER_CAN_BITRATE) &&
-                    motors[1].begin((gpio_num_t)TETHER_CAN_TX_GPIO,
-                                   (gpio_num_t)TETHER_CAN_RX_GPIO,
-                                   TETHER_CAN_BITRATE);
+  motor_bus_ready = beginLocalMotors();
   if (!motor_bus_ready) haltConfiguration("master local TWAI/two-motor initialization failed", own_mac);
   for (auto &state : motor_state)
     state.next_probe_ms = state.next_control_ms = state.next_telemetry_ms = millis();
@@ -702,20 +732,17 @@ void setup() {
 #else
   if (!addPeer(kMasterApMac)) haltConfiguration("could not register master AP peer", own_mac);
   if (TETHER_MOTORS_CONFIGURED) {
-    motor_bus_ready = motors[0].begin((gpio_num_t)TETHER_CAN_TX_GPIO,
-                                     (gpio_num_t)TETHER_CAN_RX_GPIO,
-                                     TETHER_CAN_BITRATE) &&
-                      motors[1].begin((gpio_num_t)TETHER_CAN_TX_GPIO,
-                                     (gpio_num_t)TETHER_CAN_RX_GPIO,
-                                     TETHER_CAN_BITRATE);
-    if (!motor_bus_ready) haltConfiguration("TWAI/two-motor initialization failed", own_mac);
+    if (!localMotorIdsConfigured())
+      haltConfiguration("configure all three node motor IDs", own_mac);
+    motor_bus_ready = beginLocalMotors();
+    if (!motor_bus_ready) haltConfiguration("TWAI/three-motor initialization failed", own_mac);
   } else {
     Serial.println("COMMISSIONING: motor IDs unconfigured; radio online, motor control blocked");
   }
   for (auto &state : motor_state)
     state.next_probe_ms = state.next_control_ms = state.next_telemetry_ms = millis();
   next_hello_ms = millis();
-  Serial.println("node ready; both motors estopped");
+  Serial.println("node ready; all three motors estopped");
 #endif
 }
 

@@ -39,8 +39,16 @@ class TetherModelTest(unittest.TestCase):
         node = Node(2)
         self.assertTrue(node.receive(0, 10, 0, reset=True))
         self.assertTrue(node.receive(1, 10, 0, reset=True))
+        self.assertTrue(node.receive(2, 10, 0, reset=True))
         self.assertFalse(node.receive(0, 10, 1))
         self.assertTrue(node.receive(1, 11, 1))
+        self.assertTrue(node.receive(2, 11, 1))
+
+    def test_node_specific_motor_counts(self):
+        master = Master({1, 2})
+        remote = Node(1)
+        self.assertFalse(master.command_local(2, 1, 0, reset=True))
+        self.assertTrue(remote.receive(2, 1, 0, reset=True))
 
 
 if __name__ == "__main__":

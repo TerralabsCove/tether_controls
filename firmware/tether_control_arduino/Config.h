@@ -33,28 +33,37 @@
 #define TETHER_MASTER_AP_PASSWORD "tether-bench"  // Change before field use.
 #define TETHER_CONTROL_UDP_PORT 4210
 #define TETHER_LAPTOP_WATCHDOG_MS 1000
-// Each module owns one local CAN bus with a small motor (slot 0) and a big
-// motor (slot 1). CAN IDs are local to that bus and independent of Tether IDs.
-// A module will advertise over ESP-NOW but refuse motor control while its four
-// IDs are unconfigured. Fill IDs only from a physical scan.
+// Each module owns one local CAN bus. Master id 0 has two motors; remote ids 1
+// and 2 have three. CAN IDs are local to that bus and independent of Tether
+// IDs. A remote module advertises over ESP-NOW but refuses motor control while
+// any of its IDs are unconfigured. Fill IDs only from a physical scan.
 #if TETHER_NODE_ID == 0
+#define TETHER_LOCAL_MOTOR_COUNT 2
 #define TETHER_MOTORS_CONFIGURED 1
 #define TETHER_SMALL_MOTOR_SLAVE_ID 0x07
 #define TETHER_SMALL_MOTOR_FEEDBACK_ID 0x17
 #define TETHER_BIG_MOTOR_SLAVE_ID 0x04
 #define TETHER_BIG_MOTOR_FEEDBACK_ID 0x14
+#define TETHER_THIRD_MOTOR_SLAVE_ID 0x000
+#define TETHER_THIRD_MOTOR_FEEDBACK_ID 0x000
 #elif TETHER_NODE_ID == 1
+#define TETHER_LOCAL_MOTOR_COUNT 3
 #define TETHER_MOTORS_CONFIGURED 0
 #define TETHER_SMALL_MOTOR_SLAVE_ID 0x000
 #define TETHER_SMALL_MOTOR_FEEDBACK_ID 0x000
 #define TETHER_BIG_MOTOR_SLAVE_ID 0x000
 #define TETHER_BIG_MOTOR_FEEDBACK_ID 0x000
+#define TETHER_THIRD_MOTOR_SLAVE_ID 0x000
+#define TETHER_THIRD_MOTOR_FEEDBACK_ID 0x000
 #elif TETHER_NODE_ID == 2
+#define TETHER_LOCAL_MOTOR_COUNT 3
 #define TETHER_MOTORS_CONFIGURED 0
 #define TETHER_SMALL_MOTOR_SLAVE_ID 0x000
 #define TETHER_SMALL_MOTOR_FEEDBACK_ID 0x000
 #define TETHER_BIG_MOTOR_SLAVE_ID 0x000
 #define TETHER_BIG_MOTOR_FEEDBACK_ID 0x000
+#define TETHER_THIRD_MOTOR_SLAVE_ID 0x000
+#define TETHER_THIRD_MOTOR_FEEDBACK_ID 0x000
 #else
 #error "TETHER_NODE_ID must be 0, 1, or 2"
 #endif

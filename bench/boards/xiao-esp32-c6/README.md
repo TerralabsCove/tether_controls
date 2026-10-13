@@ -6,8 +6,8 @@ Use Arduino IDE board `XIAO_ESP32C6` with Espressif Arduino-ESP32
 D9/GPIO20 for TWAI TX and D10/GPIO18 for TWAI RX and configures the onboard
 antenna switch.
 
-Protocol version 2 exposes a small and big motor slot on every module. A
-successful compile confirms the target API, not physical two-motor CAN or RF
+Protocol version 3 exposes two motor slots on master ID 0 and three on remote
+IDs 1 and 2. A successful compile confirms the target API, not physical multi-motor CAN or RF
 operation.
 
 ## Get MAC addresses
@@ -29,23 +29,24 @@ discovering a motor node's station MAC. It does not report the master's
 SoftAP MAC, so it does not replace this repository's `xiao_c6_identity` for
 master provisioning.
 
-## Two-motor C6 firmware
+## Multi-motor C6 firmware
 
 Edit `../../../firmware/tether_control_arduino/Config.h` and flash in this order:
 
 1. Master: use small `0x07`/`0x17` and big `0x04`/`0x14`, then select
    `TETHER_ROLE_MASTER`, node ID `0`.
-2. Left: scan both motors, fill all four IDs, set
+2. Left: identify and scan all three motors, fill all six IDs, set
    `TETHER_MOTORS_CONFIGURED=1`, then select node ID `1`.
-3. Right: scan both motors, fill all four IDs, set
+3. Right: identify and scan all three motors, fill all six IDs, set
    `TETHER_MOTORS_CONFIGURED=1`, then select node ID `2`.
 
 The master and both remote nodes each need their own 3.3 V CAN transceiver.
 Wire D9/GPIO20 to transceiver TXD and D10/GPIO18 to
 transceiver RXD. Then wire CAN_H, CAN_L, and common ground to that node's local
 motor bus. Supply motor power separately. Terminate only the two physical ends
-of each local bus. A final module has the ESP/transceiver plus two motors on
-that bus; the middle device does not receive an extra termination resistor.
+of each local bus. The master has the ESP/transceiver plus two motors; each
+remote module has the ESP/transceiver plus three motors. Intermediate devices
+do not receive an extra termination resistor.
 
 The C6 does not use `wireless_serial_node`: that sketch is only the temporary
 S3-plus-laptop USB-CAN arrangement. On every C6 module, upload the canonical
@@ -53,9 +54,9 @@ Arduino sketch so TWAI talks directly to the local motor bus.
 
 ## What remains hardware-dependent
 
-The two-motor code compiles for XIAO ESP32-C6 and uses the supported ESP-IDF
+The multi-motor code compiles for XIAO ESP32-C6 and uses the supported ESP-IDF
 6.1 TWAI node API. Bench confirmation still requires the real C6 boards,
-transceivers, and both motors on one bus. Check transceiver voltage, TXD/RXD
+transceivers, and all local motors on one bus. Check transceiver voltage, TXD/RXD
 direction, standby/enable pins, common ground, 120-ohm end termination,
 1 Mbit/s bitrate, and the actual motor IDs before enabling. Use
 `../../can_smoke_test/can_smoke_test.ino` first if the motors never reply.

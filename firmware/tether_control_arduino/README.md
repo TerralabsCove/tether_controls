@@ -12,12 +12,12 @@ laptop -- Wi-Fi/UDP --> id 0 master -- ESP-NOW --> id 1 left / id 2 right
                            |                              |
                         local CAN                     local CAN
                          /    \                         /    \
-                      small   big                   small   big
+                      small   big                 motor 0/1/2
 ```
 
 It uses unicast ESP-NOW identities, laptop and node watchdogs, the supported
 ESP-IDF 6.1 TWAI node API, Damiao limit discovery, CAN recovery, full-state
-commands, two motors per local CAN bus, and per-motor telemetry. It includes the fixes learned on the S3
+commands, node-specific motor counts, and per-motor telemetry. It includes the fixes learned on the S3
 bench: delayed ESP-NOW startup after SoftAP association, transient laptop
 heartbeat retry, stale-sequence rejection, motor-fault latching, and correct
 interpretation of Damiao status `1` as enabled rather than an error.
@@ -62,22 +62,23 @@ chips. The C6-specific copy is in
 
 ## Configure and upload
 
-Edit the role, Tether node ID, and that module's four CAN IDs in `Config.h`.
-Each module has motor `0` (small) and motor `1` (big). Set
-`TETHER_MOTORS_CONFIGURED` to `1` only after both motors have been physically
-scanned. An unconfigured remote node still advertises over ESP-NOW for
-commissioning, but motor control remains blocked. The master refuses to boot
-with missing IDs.
+Edit the role, Tether node ID, and that module's CAN IDs in `Config.h`.
+Master ID `0` has motor slots `0` (small) and `1` (big). Remote IDs `1` and
+`2` use slots `0`, `1`, and `2`; the type and mechanical role of slot `2` are
+not yet recorded. Set `TETHER_MOTORS_CONFIGURED` to `1` only after every motor
+on that module has been physically scanned. An unconfigured remote node still
+advertises over ESP-NOW for commissioning, but motor control remains blocked.
+The master refuses to boot with missing IDs.
 
 1. Master first: `TETHER_ROLE_MASTER`, ID `0`.
 2. Left: `TETHER_ROLE_NODE`, ID `1`.
 3. Right: `TETHER_ROLE_NODE`, ID `2`.
 
-| Node | Small slave/feedback | Big slave/feedback | Status |
-|---:|---:|---:|---|
-| 0 | `0x07` / `0x17` | `0x04` / `0x14` | configured |
-| 1 | unknown | unknown | scan both motors before enabling |
-| 2 | unknown | unknown | scan both motors before enabling |
+| Node | Slot 0 | Slot 1 | Slot 2 | Status |
+|---:|---:|---:|---:|---|
+| 0 | `0x07` / `0x17` small | `0x04` / `0x14` big | not present | configured |
+| 1 | unknown | unknown | unknown type and IDs | scan all three before enabling |
+| 2 | unknown | unknown | unknown type and IDs | scan all three before enabling |
 
 Connect only one unknown motor to the DM-USB-CAN adapter at a time and run
 `bench/pc_bridge/bridge.py --scan`. The firmware reads PMAX, VMAX, and TMAX
@@ -97,7 +98,8 @@ selects the hardware details at compile time:
 All three modules, including the master, require a 3.3 V CAN transceiver.
 Connect TX to transceiver TXD, RX to RXD, share ground with the motor bus, 
 use 1 Mbit/s, and terminate the two physical bus ends.
-A target module has three CAN devices: its ESP/transceiver and two motors.
+A master module has three CAN devices: its ESP/transceiver and two motors. A
+remote module has four: its ESP/transceiver and three motors.
 Terminate the physical ends, not every device.
 Tether IDs 0, 1, and 2 are radio/module identities and must not be confused
 with Damiao CAN IDs. Because the three CAN buses are electrically separate,
@@ -119,8 +121,9 @@ cd bench
 python3 wireless_client/client.py --telemetry-hz 0
 ```
 
-Commands use `N` for the Tether module and `M` for the local motor:
-`M=0` is small and `M=1` is big. A conservative first motion is:
+Commands use `N` for the Tether module and `M` for the local motor. Master ID
+`0` accepts `M=0..1`; remote IDs `1` and `2` accept `M=0..2`. A conservative
+first motion is:
 
 ```text
 peers
@@ -136,21 +139,21 @@ estop
 quit
 ```
 
-Keep motor power on a physical cutoff. Both motors boot estopped. Each motor
+Keep motor power on a physical cutoff. All motors boot estopped. Each motor
 requires its own recent feedback and motor-provided limits, disables after 60
 ms without its own fresh command, and latches its estop on motor fault or lost
-feedback. CAN bus-off affects both motors sharing that bus. The master estops
-all six motor slots after one second without laptop traffic. Telemetry includes
-both `id=N` and `motor=M`.
+feedback. CAN bus-off affects every motor sharing that module's bus. The master
+estops all eight motor slots after one second without laptop traffic. Telemetry
+includes both `id=N` and `motor=M`.
 
 ## Verification performed
 
-- Protocol v2 two-motor firmware compiles for S3 and XIAO C6 with
+- Protocol v3 node-specific motor-count firmware compiles for S3 and XIAO C6 with
   Arduino-ESP32 `4.0.0-RC1` / ESP-IDF 6.1.
 - S3 bench: SoftAP, UDP client, ESP-NOW node presence, DM-USB-CAN bridge,
   Damiao scan/inspect, telemetry, reset, enable, position motion, disable, and
   estop exercised.
-- Two motors on one ESP/TWAI bus and XIAO C6 hardware are not yet exercised. A
+- Multiple motors on one ESP/TWAI bus and XIAO C6 hardware are not yet exercised. A
   successful compile and simulator test are not a hardware measurement.
 
 Primary references: [Arduino-ESP32 releases](https://github.com/espressif/arduino-esp32/releases),

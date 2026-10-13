@@ -4,11 +4,11 @@
 
 namespace tether {
 constexpr uint32_t kMagic = 0x33524854u;
-constexpr uint8_t kVersion = 2;
+constexpr uint8_t kVersion = 3;
 constexpr uint8_t kMasterId = 0;
 constexpr uint8_t kBroadcastId = 0xff;
-constexpr uint8_t kMotorCount = 2;
-enum MotorIndex : uint8_t { kSmallMotor = 0, kBigMotor = 1 };
+constexpr uint8_t kMotorCount = 3;
+enum MotorIndex : uint8_t { kSmallMotor = 0, kBigMotor = 1, kThirdMotor = 2 };
 
 enum PacketType : uint8_t { kHello = 1, kCommand = 2, kTelemetry = 3 };
 enum ControlMode : uint8_t { kIdle = 0, kPositionVelocity = 1, kMit = 2 };

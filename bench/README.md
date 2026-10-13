@@ -5,8 +5,9 @@ bridge/client, and the tests used to establish the current bench results. It
 does not contain deployment firmware. Use
 `../firmware/tether_control_arduino/` for every module.
 
-The physical result recorded below exercised one motor. The current protocol,
-simulator, client, and canonical firmware address two motors per module.
+The physical result recorded below exercised one motor. Protocol version 3,
+the simulator, client, and canonical firmware address two motors on master ID
+0 and three motors on each remote node.
 
 The exercised one-motor bench architecture is:
 
@@ -68,9 +69,9 @@ come from CAN IDs or boot order:
 
 | Tether ID | Role | Target motor mapping |
 |---:|---|---|
-| 0 | master | small `0x07`/`0x17`; big `0x04`/`0x14` |
-| 1 | left node | one small and one big motor; IDs not yet scanned |
-| 2 | right node | one small and one big motor; IDs not yet scanned |
+| 0 | master | two motors: small `0x07`/`0x17`; big `0x04`/`0x14` |
+| 1 | left node | three motors; types/roles incomplete and IDs not yet scanned |
+| 2 | right node | three motors; types/roles incomplete and IDs not yet scanned |
 
 Upload `mac_probe/mac_probe.ino`, or the dedicated C6 utility at
 `boards/xiao-esp32-c6/xiao_c6_identity/xiao_c6_identity.ino`, and record:
@@ -93,7 +94,7 @@ to obtain `kMasterApMac`.
 
 ## Configure and flash the canonical firmware
 
-Edit the role lines and both motor mappings in
+Edit the role lines and all active motor mappings in
 `../firmware/tether_control_arduino/Config.h` before each upload.
 
 Master, always first:
@@ -105,7 +106,7 @@ Master, always first:
 
 The master mapping is small `0x07`/`0x17` and big `0x04`/`0x14`. Flash it
 first. Left and right mappings remain zero and `TETHER_MOTORS_CONFIGURED=0`
-until both motors on that module have been scanned.
+until all three motors on that module have been scanned.
 
 Left node:
 
@@ -141,8 +142,8 @@ The Waveshare transceiver is the physical-layer device. The XIAO contains the
 TWAI controller but cannot drive CAN_H/CAN_L directly. Check any
 standby/enable jumper or pin on the exact transceiver revision. Use 1 Mbit/s,
 common ground, and 120-ohm termination at the two physical ends of each local
-bus. The one-motor bench has two CAN endpoints. The target module has three:
-its ESP/transceiver and two motors. In both cases, terminate the two physical
+bus. The one-motor bench has two CAN endpoints. The master has three CAN
+devices, while each remote module has four. In every case, terminate the two physical
 ends of the bus; do not place termination at every device. A module does not
 share its wired bus with either remote module. CAN IDs may be
 reused on different modules because the buses are electrically separate.
@@ -174,7 +175,8 @@ off. A one-second loss of laptop heartbeat estops all nodes. Telemetry can
 interleave with terminal input, so keep `--telemetry-hz 0` while entering
 commands; restart with `--telemetry-hz 2` when you want a live display.
 
-Conservative motion sequence (`M=0` small, `M=1` big):
+Conservative master motion sequence (`M=0` small, `M=1` big). Remote nodes
+also accept `M=2` for their third motor:
 
 ```text
 peers
@@ -227,23 +229,21 @@ Create the laptop environment once:
 
 ```sh
 cd bench/pc_bridge
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python bridge.py --list
+python3 -m pip install --user -r requirements.txt
+python3 bridge.py --list
 ```
 
 With one powered motor connected, scan without enabling it:
 
 ```sh
-python bridge.py --scan \
+python3 bridge.py --scan \
   --dm-port /dev/cu.usbmodem00000000050C1
 ```
 
 Inspect its mapping limits:
 
 ```sh
-python bridge.py --inspect \
+python3 bridge.py --inspect \
   --dm-port /dev/cu.usbmodem00000000050C1 \
   --motor-id 0x04
 ```
@@ -251,7 +251,7 @@ python bridge.py --inspect \
 Run node 1 with the small motor:
 
 ```sh
-python bridge.py --wireless-node \
+python3 bridge.py --wireless-node \
   --motor-slot 0 \
   --esp-port /dev/cu.usbmodem5C931120951 \
   --dm-port /dev/cu.usbmodem00000000050C1 \
@@ -265,7 +265,7 @@ python bridge.py --wireless-node \
 Or run node 1 with the big motor:
 
 ```sh
-python bridge.py --wireless-node \
+python3 bridge.py --wireless-node \
   --motor-slot 1 \
   --esp-port /dev/cu.usbmodem5C931120951 \
   --dm-port /dev/cu.usbmodem00000000050C1 \
@@ -275,6 +275,9 @@ python bridge.py --wireless-node \
   --vmax 20 \
   --tmax 200
 ```
+
+After the third motor is identified and inspected, use the same command with
+`--motor-slot 2` and that motor's scanned IDs and limits.
 
 Use a second terminal for `wireless_client/client.py`. Operator commands still
 travel laptop -> master -> ESP-NOW node. Closing the Python bridge, losing
@@ -308,7 +311,7 @@ faults, CAN bus-off, lost feedback, stale sequences, MAC/ID mismatch, and
 unconfigured identities prevent or stop motion.
 
 This remains bench firmware. Keep shafts unloaded for first motion and keep a
-hardware motor-power cutoff within reach. Do not power two motors from a
+hardware motor-power cutoff within reach. Do not power multiple motors from a
 supply that repeatedly enters current limit; solve the power path first.
 
 ## Primary references

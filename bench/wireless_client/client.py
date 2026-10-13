@@ -11,7 +11,8 @@ import time
 
 HELP = (
     "peers | reset N M | enable N M | disable N M | estop | zero N M | "
-    "pos N M q dq | mit N M q dq tau kp kd | quit  (M: 0=small, 1=big)"
+    "pos N M q dq | mit N M q dq tau kp kd | quit  "
+    "(id 0: M=0..1; ids 1/2: M=0..2)"
 )
 
 

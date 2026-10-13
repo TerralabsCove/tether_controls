@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import struct
 
 MAGIC = 0x33524854
-VERSION = 2
+VERSION = 3
 COMMAND = 2
 HEADER = struct.Struct("<IBBBBHHI")
 COMMAND_BODY = struct.Struct("<BBBBfffffI")
@@ -69,11 +69,15 @@ class Motor:
 @dataclass
 class Node:
     node_id: int
-    motors: list[Motor] = field(default_factory=lambda: [Motor(), Motor()])
+    motor_count: int = 3
+    motors: list[Motor] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.motors = [Motor() for _ in range(self.motor_count)]
 
     def receive(self, motor: int, sequence: int, now_ms: int,
                 enable: bool = False, reset: bool = False) -> bool:
-        if motor not in (0, 1):
+        if not 0 <= motor < self.motor_count:
             return False
         return self.motors[motor].receive(sequence, now_ms, enable=enable, reset=reset)
 
@@ -86,7 +90,7 @@ class Node:
 class Master:
     configured_ids: set[int]
     last_seen_ms: dict[int, int] = field(default_factory=dict)
-    local_motors: Node = field(default_factory=lambda: Node(0))
+    local_motors: Node = field(default_factory=lambda: Node(0, 2))
 
     def hello(self, node_id: int, now_ms: int) -> bool:
         if node_id not in self.configured_ids:
@@ -136,7 +140,7 @@ def run_demo() -> None:
     print("PASS: packet checksum/size")
     print("PASS: node 2 then node 1 discovery")
     print("PASS: per-motor duplicate rejection and watchdog")
-    print("PASS: two master-local motor routes and watchdogs")
+    print("PASS: two master-local and three remote motor routes")
     print("PASS: online/offline availability timeout")
 
 
