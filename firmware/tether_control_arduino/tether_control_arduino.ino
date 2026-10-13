@@ -153,21 +153,22 @@ struct MotorRuntime {
 };
 
 DamiaoMotor motors[tether::kMotorCount] = {
-    DamiaoMotor(TETHER_SMALL_MOTOR_SLAVE_ID, TETHER_SMALL_MOTOR_FEEDBACK_ID),
-    DamiaoMotor(TETHER_BIG_MOTOR_SLAVE_ID, TETHER_BIG_MOTOR_FEEDBACK_ID),
-    DamiaoMotor(TETHER_THIRD_MOTOR_SLAVE_ID, TETHER_THIRD_MOTOR_FEEDBACK_ID),
+    DamiaoMotor(TETHER_MOTOR_0_SLAVE_ID, TETHER_MOTOR_0_FEEDBACK_ID),
+    DamiaoMotor(TETHER_MOTOR_1_SLAVE_ID, TETHER_MOTOR_1_FEEDBACK_ID),
+    DamiaoMotor(TETHER_MOTOR_2_SLAVE_ID, TETHER_MOTOR_2_FEEDBACK_ID),
 };
 MotorRuntime motor_state[tether::kMotorCount];
 bool motor_bus_ready = false;
 
-const char *motorName(uint8_t motor_index) {
-  if (motor_index == tether::kSmallMotor) return "small";
-  if (motor_index == tether::kBigMotor) return "big";
-  return "third";
+const char *motorName(uint8_t node_id, uint8_t motor_index) {
+  if (node_id == tether::kMasterId) return "master";
+  if (motor_index == tether::kMotor0) return "big";
+  if (motor_index == tether::kMotor1) return "near-master";
+  return "far-end";
 }
 
 uint8_t motorCountForNode(uint8_t node_id) {
-  return node_id == tether::kMasterId ? 2 : tether::kMotorCount;
+  return node_id == tether::kMasterId ? 1 : tether::kMotorCount;
 }
 
 bool localMotorIdsConfigured() {
@@ -263,7 +264,7 @@ void printPeers() {
   for (uint8_t m = 0; m < TETHER_LOCAL_MOTOR_COUNT; ++m) {
     const auto &feedback = motors[m].feedback();
     const auto &limits = motors[m].limits();
-    reportLine("LOCAL id=0 motor=" + String(m) + " name=" + motorName(m) +
+    reportLine("LOCAL id=0 motor=" + String(m) + " name=" + motorName(0, m) +
                " state=" + String(motors[m].seen() ? "SEEN" : "NOT_SEEN") +
                " enabled=" + String(motor_state[m].enabled ? "yes" : "no") +
                " estop=" + String(motor_state[m].estop ? "yes" : "no") +
@@ -294,7 +295,7 @@ void parseOperatorCommand(String line) {
   }
   if (line == "peers" || line == "status") { printPeers(); return; }
   if (line == "help") {
-    reportLine("HELP peers | reset N M | enable N M | disable N M | estop | zero N M | pos N M q dq | mit N M q dq tau kp kd; id 0: M=0..1, ids 1/2: M=0..2");
+    reportLine("HELP peers | reset N M | enable N M | disable N M | estop | zero N M | pos N M q dq | mit N M q dq tau kp kd; id 0: M=0, ids 1/2: M=0 big, 1 near, 2 far");
     return;
   }
   if (line == "estop") {
@@ -449,7 +450,7 @@ void serviceLocalMotors() {
       snprintf(line, sizeof(line),
                "TEL id=0 motor=%u name=%s seq=%u q=%.3f dq=%.3f tau=%.2f flags=%04x "
                "motor_status=%u temp=%u/%u rssi=0 can_rx=%lu can_tx=%lu fail=%lu buserr=%lu",
-               m, motorName(m), ++state.telemetry_sequence, f.q, f.dq, f.tau, flags, f.error,
+               m, motorName(0, m), ++state.telemetry_sequence, f.q, f.dq, f.tau, flags, f.error,
                f.mos_c, f.rotor_c, (unsigned long)bus.rx_frames,
                (unsigned long)bus.tx_frames, (unsigned long)bus.tx_failures,
                (unsigned long)bus.bus_errors);
@@ -507,7 +508,7 @@ void processMasterRadio() {
       snprintf(line, sizeof(line),
                "TEL id=%u motor=%u name=%s seq=%u q=%.3f dq=%.3f tau=%.2f flags=%04x "
                "motor_status=%u temp=%u/%u rssi=%d can_rx=%lu can_tx=%lu fail=%lu buserr=%lu",
-               id, t.motor_index, motorName(t.motor_index), t.header.sequence,
+               id, t.motor_index, motorName(id, t.motor_index), t.header.sequence,
                t.position_rad, t.velocity_rad_s, t.torque_nm,
                t.node_flags, t.motor_error, t.mos_temperature_c,
                t.rotor_temperature_c, packet.rssi,
@@ -723,12 +724,12 @@ void setup() {
                 TETHER_MASTER_AP_SSID, TETHER_ESPNOW_CHANNEL,
                 WiFi.softAPIP().toString().c_str(), TETHER_CONTROL_UDP_PORT);
   if (!localMotorIdsConfigured())
-    haltConfiguration("configure both id-0 motors before flashing the master", own_mac);
+    haltConfiguration("configure the id-0 motor before flashing the master", own_mac);
   motor_bus_ready = beginLocalMotors();
-  if (!motor_bus_ready) haltConfiguration("master local TWAI/two-motor initialization failed", own_mac);
+  if (!motor_bus_ready) haltConfiguration("master local TWAI/motor initialization failed", own_mac);
   for (auto &state : motor_state)
     state.next_probe_ms = state.next_control_ms = state.next_telemetry_ms = millis();
-  Serial.println("master AP and two local motors ready; estop latched; waiting for laptop association");
+  Serial.println("master AP and local motor ready; estop latched; waiting for laptop association");
 #else
   if (!addPeer(kMasterApMac)) haltConfiguration("could not register master AP peer", own_mac);
   if (TETHER_MOTORS_CONFIGURED) {

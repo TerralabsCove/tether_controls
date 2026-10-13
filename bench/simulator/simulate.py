@@ -90,7 +90,7 @@ class Node:
 class Master:
     configured_ids: set[int]
     last_seen_ms: dict[int, int] = field(default_factory=dict)
-    local_motors: Node = field(default_factory=lambda: Node(0, 2))
+    local_motors: Node = field(default_factory=lambda: Node(0, 1))
 
     def hello(self, node_id: int, now_ms: int) -> bool:
         if node_id not in self.configured_ids:
@@ -122,8 +122,6 @@ def run_demo() -> None:
 
     assert master.command_local(0, 1, 100, reset=True)
     assert master.command_local(0, 2, 120, enable=True)
-    assert master.command_local(1, 1, 100, reset=True)
-    assert master.command_local(1, 2, 120, enable=True)
     assert all(m.enabled for m in master.local_motors.motors)
     master.local_motors.tick(181)
     assert not any(m.enabled for m in master.local_motors.motors)
@@ -140,7 +138,7 @@ def run_demo() -> None:
     print("PASS: packet checksum/size")
     print("PASS: node 2 then node 1 discovery")
     print("PASS: per-motor duplicate rejection and watchdog")
-    print("PASS: two master-local and three remote motor routes")
+    print("PASS: one master-local and three remote motor routes")
     print("PASS: online/offline availability timeout")
 
 

@@ -228,7 +228,7 @@ def main() -> int:
     parser.add_argument("--feedback-id", type=lambda x: int(x, 0))
     parser.add_argument(
         "--motor-slot", type=int, choices=(0, 1, 2), default=0,
-        help="Tether motor selector in --wireless-node mode: 0=small, 1=big, 2=third",
+        help="Tether motor selector: remote slot 0=big, 1=near-master, 2=far-end",
     )
     parser.add_argument("--pmax", type=float)
     parser.add_argument("--vmax", type=float)

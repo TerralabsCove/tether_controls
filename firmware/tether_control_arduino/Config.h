@@ -33,37 +33,37 @@
 #define TETHER_MASTER_AP_PASSWORD "tether-bench"  // Change before field use.
 #define TETHER_CONTROL_UDP_PORT 4210
 #define TETHER_LAPTOP_WATCHDOG_MS 1000
-// Each module owns one local CAN bus. Master id 0 has two motors; remote ids 1
+// Each module owns one local CAN bus. Master id 0 has one motor; remote ids 1
 // and 2 have three. CAN IDs are local to that bus and independent of Tether
 // IDs. A remote module advertises over ESP-NOW but refuses motor control while
 // any of its IDs are unconfigured. Fill IDs only from a physical scan.
 #if TETHER_NODE_ID == 0
-#define TETHER_LOCAL_MOTOR_COUNT 2
+#define TETHER_LOCAL_MOTOR_COUNT 1
 #define TETHER_MOTORS_CONFIGURED 1
-#define TETHER_SMALL_MOTOR_SLAVE_ID 0x07
-#define TETHER_SMALL_MOTOR_FEEDBACK_ID 0x17
-#define TETHER_BIG_MOTOR_SLAVE_ID 0x04
-#define TETHER_BIG_MOTOR_FEEDBACK_ID 0x14
-#define TETHER_THIRD_MOTOR_SLAVE_ID 0x000
-#define TETHER_THIRD_MOTOR_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_0_SLAVE_ID 0x04
+#define TETHER_MOTOR_0_FEEDBACK_ID 0x14
+#define TETHER_MOTOR_1_SLAVE_ID 0x000
+#define TETHER_MOTOR_1_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_2_SLAVE_ID 0x000
+#define TETHER_MOTOR_2_FEEDBACK_ID 0x000
 #elif TETHER_NODE_ID == 1
 #define TETHER_LOCAL_MOTOR_COUNT 3
 #define TETHER_MOTORS_CONFIGURED 0
-#define TETHER_SMALL_MOTOR_SLAVE_ID 0x000
-#define TETHER_SMALL_MOTOR_FEEDBACK_ID 0x000
-#define TETHER_BIG_MOTOR_SLAVE_ID 0x000
-#define TETHER_BIG_MOTOR_FEEDBACK_ID 0x000
-#define TETHER_THIRD_MOTOR_SLAVE_ID 0x000
-#define TETHER_THIRD_MOTOR_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_0_SLAVE_ID 0x02  // big
+#define TETHER_MOTOR_0_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_1_SLAVE_ID 0x05  // closer to master
+#define TETHER_MOTOR_1_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_2_SLAVE_ID 0x01  // farther/end
+#define TETHER_MOTOR_2_FEEDBACK_ID 0x000
 #elif TETHER_NODE_ID == 2
 #define TETHER_LOCAL_MOTOR_COUNT 3
 #define TETHER_MOTORS_CONFIGURED 0
-#define TETHER_SMALL_MOTOR_SLAVE_ID 0x000
-#define TETHER_SMALL_MOTOR_FEEDBACK_ID 0x000
-#define TETHER_BIG_MOTOR_SLAVE_ID 0x000
-#define TETHER_BIG_MOTOR_FEEDBACK_ID 0x000
-#define TETHER_THIRD_MOTOR_SLAVE_ID 0x000
-#define TETHER_THIRD_MOTOR_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_0_SLAVE_ID 0x06  // big
+#define TETHER_MOTOR_0_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_1_SLAVE_ID 0x03  // closer to master
+#define TETHER_MOTOR_1_FEEDBACK_ID 0x000
+#define TETHER_MOTOR_2_SLAVE_ID 0x07  // farther/end
+#define TETHER_MOTOR_2_FEEDBACK_ID 0x000
 #else
 #error "TETHER_NODE_ID must be 0, 1, or 2"
 #endif

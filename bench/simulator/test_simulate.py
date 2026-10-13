@@ -28,7 +28,7 @@ class TetherModelTest(unittest.TestCase):
     def test_master_local_motor_does_not_require_espnow(self):
         master = Master({1, 2})
         self.assertTrue(master.available(0, 0))
-        for motor in (0, 1):
+        for motor in (0,):
             self.assertTrue(master.command_local(motor, 1, 0, reset=True))
             self.assertTrue(master.command_local(motor, 2, 20, enable=True))
             self.assertTrue(master.local_motors.motors[motor].enabled)
@@ -47,7 +47,7 @@ class TetherModelTest(unittest.TestCase):
     def test_node_specific_motor_counts(self):
         master = Master({1, 2})
         remote = Node(1)
-        self.assertFalse(master.command_local(2, 1, 0, reset=True))
+        self.assertFalse(master.command_local(1, 1, 0, reset=True))
         self.assertTrue(remote.receive(2, 1, 0, reset=True))
 
 

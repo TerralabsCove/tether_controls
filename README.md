@@ -19,21 +19,21 @@ sketches and host tools; it is not another firmware implementation.
 ## Current topology and status
 
 The target robot has three wireless modules: master `0`, left `1`, and right
-`2`. Master `0` has two Damiao motors. Left `1` and right `2` each have three
-motors on their own private local CAN bus, for eight motors total. The master
-pair is currently assigned:
+`2`. Master `0` has one Damiao motor. Left `1` and right `2` each have three
+motors on their own private local CAN bus, for seven motors total. The master
+motor is currently assigned:
 
 | Motor | Slave ID | Feedback ID |
 |---|---:|---:|
-| master small | `0x07` | `0x17` |
-| master big | `0x04` | `0x14` |
+| master slot 0 | `0x04` | `0x14` |
 
-The type and role of each remote module's third motor have not been recorded.
-None of the six left/right motors have been scanned. Do not guess their IDs or
-limits.
+The remote slave IDs are assigned by mechanical role, but their feedback IDs
+and limits have not been scanned. Do not derive feedback IDs from slave IDs.
 
 Protocol version 3 provides motor slots `0` through `2`. Master `0` exposes
-slots `0` and `1`; remote nodes expose all three. Each module runs its active
+slot `0`; remote nodes expose all three. Remote slot `0` is the big motor,
+slot `1` is closer to the master, and slot `2` is farther from the master.
+Each module runs its active
 Damiao instances over one shared TWAI bus, with separate commands, feedback,
 limit discovery, enable state, estop state, sequence checking, and command
 watchdogs. The multi-motor path still requires physical validation before

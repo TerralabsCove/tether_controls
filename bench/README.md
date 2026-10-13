@@ -6,8 +6,8 @@ does not contain deployment firmware. Use
 `../firmware/tether_control_arduino/` for every module.
 
 The physical result recorded below exercised one motor. Protocol version 3,
-the simulator, client, and canonical firmware address two motors on master ID
-0 and three motors on each remote node.
+the simulator, client, and canonical firmware address one motor on master ID 0
+and three motors on each remote node.
 
 The exercised one-motor bench architecture is:
 
@@ -69,9 +69,9 @@ come from CAN IDs or boot order:
 
 | Tether ID | Role | Target motor mapping |
 |---:|---|---|
-| 0 | master | two motors: small `0x07`/`0x17`; big `0x04`/`0x14` |
-| 1 | left node | three motors; types/roles incomplete and IDs not yet scanned |
-| 2 | right node | three motors; types/roles incomplete and IDs not yet scanned |
+| 0 | master | slot 0: slave `0x04`, feedback `0x14` |
+| 1 | left node | slot 0 big `0x02`; slot 1 near `0x05`; slot 2 far `0x01`; feedback IDs unknown |
+| 2 | right node | slot 0 big `0x06`; slot 1 near `0x03`; slot 2 far `0x07`; feedback IDs unknown |
 
 Upload `mac_probe/mac_probe.ino`, or the dedicated C6 utility at
 `boards/xiao-esp32-c6/xiao_c6_identity/xiao_c6_identity.ino`, and record:
@@ -104,9 +104,10 @@ Master, always first:
 #define TETHER_NODE_ID 0
 ```
 
-The master mapping is small `0x07`/`0x17` and big `0x04`/`0x14`. Flash it
-first. Left and right mappings remain zero and `TETHER_MOTORS_CONFIGURED=0`
-until all three motors on that module have been scanned.
+The master mapping is slave `0x04`, feedback `0x14`. Flash it first. Left and
+right slave IDs are assigned in `Config.h`, but their feedback IDs remain zero
+and `TETHER_MOTORS_CONFIGURED=0` until all three motors on that module have
+been scanned.
 
 Left node:
 
@@ -142,8 +143,8 @@ The Waveshare transceiver is the physical-layer device. The XIAO contains the
 TWAI controller but cannot drive CAN_H/CAN_L directly. Check any
 standby/enable jumper or pin on the exact transceiver revision. Use 1 Mbit/s,
 common ground, and 120-ohm termination at the two physical ends of each local
-bus. The one-motor bench has two CAN endpoints. The master has three CAN
-devices, while each remote module has four. In every case, terminate the two physical
+bus. The one-motor bench and final master each have two CAN endpoints. Each
+remote module has four CAN devices. In every case, terminate the two physical
 ends of the bus; do not place termination at every device. A module does not
 share its wired bus with either remote module. CAN IDs may be
 reused on different modules because the buses are electrically separate.
@@ -175,8 +176,8 @@ off. A one-second loss of laptop heartbeat estops all nodes. Telemetry can
 interleave with terminal input, so keep `--telemetry-hz 0` while entering
 commands; restart with `--telemetry-hz 2` when you want a live display.
 
-Conservative master motion sequence (`M=0` small, `M=1` big). Remote nodes
-also accept `M=2` for their third motor:
+Conservative master motion sequence (`M=0` is the only master motor). Remote
+nodes use `M=0` big, `M=1` near-master, and `M=2` far-end:
 
 ```text
 peers
@@ -184,10 +185,6 @@ reset 0 0
 pos 0 0 0.0 0.1
 enable 0 0
 disable 0 0
-reset 0 1
-pos 0 1 0.0 0.1
-enable 0 1
-disable 0 1
 estop
 quit
 ```

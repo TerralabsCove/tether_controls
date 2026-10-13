@@ -11,8 +11,8 @@ ESP32-C6 hardware:
 laptop -- Wi-Fi/UDP --> id 0 master -- ESP-NOW --> id 1 left / id 2 right
                            |                              |
                         local CAN                     local CAN
-                         /    \                         /    \
-                      small   big                 motor 0/1/2
+                           |                          /  |  \
+                        motor 0                 big  near  far
 ```
 
 It uses unicast ESP-NOW identities, laptop and node watchdogs, the supported
@@ -63,9 +63,9 @@ chips. The C6-specific copy is in
 ## Configure and upload
 
 Edit the role, Tether node ID, and that module's CAN IDs in `Config.h`.
-Master ID `0` has motor slots `0` (small) and `1` (big). Remote IDs `1` and
-`2` use slots `0`, `1`, and `2`; the type and mechanical role of slot `2` are
-not yet recorded. Set `TETHER_MOTORS_CONFIGURED` to `1` only after every motor
+Master ID `0` has only motor slot `0`. Remote IDs `1` and `2` use slot `0` for
+the big motor, slot `1` for the motor closer to the master, and slot `2` for
+the farther/end motor. Set `TETHER_MOTORS_CONFIGURED` to `1` only after every motor
 on that module has been physically scanned. An unconfigured remote node still
 advertises over ESP-NOW for commissioning, but motor control remains blocked.
 The master refuses to boot with missing IDs.
@@ -76,9 +76,9 @@ The master refuses to boot with missing IDs.
 
 | Node | Slot 0 | Slot 1 | Slot 2 | Status |
 |---:|---:|---:|---:|---|
-| 0 | `0x07` / `0x17` small | `0x04` / `0x14` big | not present | configured |
-| 1 | unknown | unknown | unknown type and IDs | scan all three before enabling |
-| 2 | unknown | unknown | unknown type and IDs | scan all three before enabling |
+| 0 | `0x04` / `0x14` only motor | not present | not present | configured |
+| 1 | `0x02` / unknown, big | `0x05` / unknown, near | `0x01` / unknown, far | scan feedback IDs and limits |
+| 2 | `0x06` / unknown, big | `0x03` / unknown, near | `0x07` / unknown, far | scan feedback IDs and limits |
 
 Connect only one unknown motor to the DM-USB-CAN adapter at a time and run
 `bench/pc_bridge/bridge.py --scan`. The firmware reads PMAX, VMAX, and TMAX
@@ -98,7 +98,7 @@ selects the hardware details at compile time:
 All three modules, including the master, require a 3.3 V CAN transceiver.
 Connect TX to transceiver TXD, RX to RXD, share ground with the motor bus, 
 use 1 Mbit/s, and terminate the two physical bus ends.
-A master module has three CAN devices: its ESP/transceiver and two motors. A
+A master module has two CAN devices: its ESP/transceiver and one motor. A
 remote module has four: its ESP/transceiver and three motors.
 Terminate the physical ends, not every device.
 Tether IDs 0, 1, and 2 are radio/module identities and must not be confused
@@ -122,7 +122,7 @@ python3 wireless_client/client.py --telemetry-hz 0
 ```
 
 Commands use `N` for the Tether module and `M` for the local motor. Master ID
-`0` accepts `M=0..1`; remote IDs `1` and `2` accept `M=0..2`. A conservative
+`0` accepts only `M=0`; remote IDs `1` and `2` accept `M=0..2`. A conservative
 first motion is:
 
 ```text
@@ -131,10 +131,6 @@ reset 0 0
 pos 0 0 0.0 0.1
 enable 0 0
 disable 0 0
-reset 0 1
-pos 0 1 0.0 0.1
-enable 0 1
-disable 0 1
 estop
 quit
 ```
@@ -143,7 +139,7 @@ Keep motor power on a physical cutoff. All motors boot estopped. Each motor
 requires its own recent feedback and motor-provided limits, disables after 60
 ms without its own fresh command, and latches its estop on motor fault or lost
 feedback. CAN bus-off affects every motor sharing that module's bus. The master
-estops all eight motor slots after one second without laptop traffic. Telemetry
+estops all seven motor slots after one second without laptop traffic. Telemetry
 includes both `id=N` and `motor=M`.
 
 ## Verification performed
