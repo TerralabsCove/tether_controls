@@ -1,0 +1,691 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <esp_arduino_version.h>
+#include <esp_idf_version.h>
+#include <esp_mac.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+
+#include "Config.h"
+#include "PeerConfig.h"
+#include "Protocol.h"
+#include "DamiaoMotor.h"
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 1, 0)
+#error "Use Arduino-ESP32 4.0.0-RC1 or newer for the supported esp_twai.h API"
+#endif
+#if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32C6)
+#error "Select an ESP32-S3 or ESP32-C6 board"
+#endif
+#if TETHER_ROLE == TETHER_ROLE_MASTER && TETHER_NODE_ID != 0
+#error "The master must be id 0"
+#endif
+#if TETHER_ROLE == TETHER_ROLE_NODE && TETHER_NODE_ID == 0
+#error "A remote node cannot use id 0; id 0 is the master with a local motor"
+#endif
+
+namespace {
+constexpr uint8_t kBroadcastMac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+union Payload {
+  tether::Header header;
+  tether::Hello hello;
+  tether::Command command;
+  tether::Telemetry telemetry;
+};
+struct ReceivedPacket {
+  size_t length;
+  int8_t rssi;
+  uint8_t source_mac[6];
+  Payload payload;
+};
+QueueHandle_t radio_queue;
+volatile uint32_t radio_drops = 0;
+
+void printMac(const uint8_t mac[6]) {
+  Serial.printf("%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2],
+                mac[3], mac[4], mac[5]);
+}
+
+bool addPeer(const uint8_t mac[6]) {
+  if (esp_now_is_peer_exist(mac)) return true;
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, mac, 6);
+  peer.channel = TETHER_ESPNOW_CHANNEL;
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+  peer.ifidx = WIFI_IF_AP;
+#else
+  peer.ifidx = WIFI_IF_STA;
+#endif
+  peer.encrypt = false;
+  return esp_now_add_peer(&peer) == ESP_OK;
+}
+
+void onReceive(const esp_now_recv_info_t *info, const uint8_t *data, int length) {
+  if (!info || !data || length < int(sizeof(tether::Header)) ||
+      length > int(sizeof(Payload))) return;
+  ReceivedPacket packet = {};
+  packet.length = size_t(length);
+  packet.rssi = info->rx_ctrl ? info->rx_ctrl->rssi : 0;
+  memcpy(packet.source_mac, info->src_addr, 6);
+  memcpy(&packet.payload, data, packet.length);
+  if (xQueueSend(radio_queue, &packet, 0) != pdTRUE)
+    radio_drops = radio_drops + 1u;
+}
+
+bool radioBegin() {
+  radio_queue = xQueueCreate(24, sizeof(ReceivedPacket));
+  if (!radio_queue) return false;
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+  // XIAO ESP32-C6 RF switch: enable RF and select the onboard antenna.
+  pinMode(3, OUTPUT); digitalWrite(3, LOW);
+  pinMode(14, OUTPUT); digitalWrite(14, LOW);
+#endif
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+  WiFi.mode(WIFI_AP);
+  WiFi.setSleep(false);
+  // softAP owns the shared AP/STA radio channel. Resetting the channel after
+  // AP startup can interrupt beaconing on some Arduino-ESP32/IDF builds.
+  if (!WiFi.softAP(TETHER_MASTER_AP_SSID, TETHER_MASTER_AP_PASSWORD,
+                   TETHER_ESPNOW_CHANNEL, 0, 4)) return false;
+  delay(100);
+  // Keep discovery identical to the proven AP smoke test. ESP-NOW and UDP
+  // start only after a laptop has associated with this SoftAP.
+  return true;
+#else
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  if (esp_wifi_set_channel(TETHER_ESPNOW_CHANNEL,
+                           WIFI_SECOND_CHAN_NONE) != ESP_OK) return false;
+  if (esp_now_init() != ESP_OK || esp_now_register_recv_cb(onReceive) != ESP_OK)
+    return false;
+  return addPeer(kBroadcastMac);
+#endif
+}
+
+void printRadioState() {
+  wifi_mode_t mode = WIFI_MODE_NULL;
+  uint8_t channel = 0;
+  wifi_second_chan_t secondary = WIFI_SECOND_CHAN_NONE;
+  const esp_err_t mode_result = esp_wifi_get_mode(&mode);
+  const esp_err_t channel_result = esp_wifi_get_channel(&channel, &secondary);
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+  wifi_config_t config = {};
+  const esp_err_t config_result = esp_wifi_get_config(WIFI_IF_AP, &config);
+  Serial.printf("radio mode=%d(%s) channel=%u(%s) AP_hidden=%u(%s) AP_MAC=%s\n",
+                int(mode), esp_err_to_name(mode_result), channel,
+                esp_err_to_name(channel_result), unsigned(config.ap.ssid_hidden),
+                esp_err_to_name(config_result), WiFi.softAPmacAddress().c_str());
+#else
+  Serial.printf("radio mode=%d(%s) channel=%u(%s)\n", int(mode),
+                esp_err_to_name(mode_result), channel,
+                esp_err_to_name(channel_result));
+#endif
+}
+
+template <typename T> bool sendPacket(const uint8_t mac[6], const T &packet) {
+  return esp_now_send(mac, reinterpret_cast<const uint8_t *>(&packet),
+                      sizeof(packet)) == ESP_OK;
+}
+
+void haltConfiguration(const char *reason, const uint8_t actual[6],
+                       const char *interface_name = "station") {
+  Serial.print("CONFIG ERROR: "); Serial.println(reason);
+  Serial.printf("this ESP %s MAC = {", interface_name);
+  for (size_t i = 0; i < 6; ++i)
+    Serial.printf("0x%02X%s", actual[i], i == 5 ? "" : ", ");
+  Serial.println("}");
+  while (true) delay(1000);
+}
+
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+struct Intent {
+  uint8_t mode = tether::kIdle, flags = 0, reset_cycles = 0, zero_cycles = 0;
+  float q = 0, dq = 0.5f, tau = 0, kp = 0, kd = 0;
+};
+struct Presence {
+  uint32_t last_seen_ms = 0;
+  int8_t rssi = 0;
+  uint32_t hello_count = 0;
+};
+Intent intents[256];
+Presence presence[256];
+uint16_t sequences[256] = {};
+uint32_t next_command_ms = 0;
+WiFiUDP control_udp;
+IPAddress laptop_ip;
+uint16_t laptop_port = 0;
+bool have_laptop = false;
+bool laptop_watchdog_latched = false;
+uint32_t last_laptop_ms = 0;
+bool master_services_started = false;
+bool master_services_failed = false;
+DamiaoMotor local_motor(TETHER_MOTOR_SLAVE_ID, TETHER_MOTOR_MASTER_ID);
+bool local_have_command = false, local_estop = true, local_enabled = false;
+bool local_watchdog = true;
+uint8_t local_previous_actions = 0;
+uint16_t local_telemetry_sequence = 0;
+uint32_t local_last_command_us = 0;
+uint32_t local_next_probe_ms = 0, local_next_control_ms = 0;
+uint32_t local_next_telemetry_ms = 0;
+
+bool startMasterServices() {
+  if (master_services_started) return true;
+  if (master_services_failed || WiFi.softAPgetStationNum() == 0) return false;
+  esp_err_t result = esp_now_init();
+  if (result == ESP_OK) result = esp_now_register_recv_cb(onReceive);
+  if (result != ESP_OK) {
+    Serial.printf("MASTER SERVICE ERROR: ESP-NOW start failed: %s\n",
+                  esp_err_to_name(result));
+    master_services_failed = true;
+    return false;
+  }
+  for (size_t i = 0; i < kNodePeerCount; ++i) {
+    if (!macIsZero(kNodePeers[i].mac) && !addPeer(kNodePeers[i].mac)) {
+      Serial.printf("MASTER SERVICE ERROR: could not add node %u peer\n",
+                    unsigned(kNodePeers[i].id));
+      master_services_failed = true;
+      return false;
+    }
+  }
+  if (!control_udp.begin(TETHER_CONTROL_UDP_PORT)) {
+    Serial.println("MASTER SERVICE ERROR: could not start UDP control port");
+    master_services_failed = true;
+    return false;
+  }
+  master_services_started = true;
+  next_command_ms = millis();
+  Serial.println("master services ready; ESP-NOW and UDP started after laptop association");
+  return true;
+}
+
+String macString(const uint8_t mac[6]) {
+  char text[18];
+  snprintf(text, sizeof(text), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(text);
+}
+
+void sendLaptop(const String &line) {
+  if (!have_laptop) return;
+  control_udp.beginPacket(laptop_ip, laptop_port);
+  control_udp.print(line);
+  control_udp.endPacket();
+}
+
+void reportLine(const String &line) {
+  Serial.println(line);
+  sendLaptop(line);
+}
+
+void printPeers() {
+  const uint32_t now = millis();
+  const auto &local_feedback = local_motor.feedback();
+  const auto &local_limits = local_motor.limits();
+  reportLine("LOCAL id=0 name=master motor=" +
+             String(local_motor.seen() ? "SEEN" : "NOT_SEEN") +
+             " enabled=" + String(local_enabled ? "yes" : "no") +
+             " estop=" + String(local_estop ? "yes" : "no") +
+             " limits=" + String(local_limits.valid ? "valid" : "unknown") +
+             " motor_status=" + String(local_feedback.error));
+  for (size_t i = 0; i < kNodePeerCount; ++i) {
+    const auto &peer = kNodePeers[i];
+    const bool online = presence[peer.id].last_seen_ms &&
+                        now - presence[peer.id].last_seen_ms <= TETHER_PEER_OFFLINE_MS;
+    String line = "PEER id=" + String(peer.id) + " name=" + peer.name +
+                  " configured=" + (macIsZero(peer.mac) ? "no" : "yes") +
+                  " state=" + (online ? "ONLINE" : "OFFLINE") + " age_ms=";
+    line += presence[peer.id].last_seen_ms
+                ? String(now - presence[peer.id].last_seen_ms) : String("never");
+    line += " rssi=" + String(presence[peer.id].rssi) + " mac=" + macString(peer.mac);
+    reportLine(line);
+  }
+}
+
+void parseOperatorCommand(String line) {
+  line.trim();
+  if (line == "ping") {
+    sendLaptop("PONG uptime_ms=" + String(millis()));
+    return;
+  }
+  if (line == "peers" || line == "status") { printPeers(); return; }
+  if (line == "help") {
+    reportLine("HELP peers | reset N | enable N | disable N | estop | zero N | pos N q dq | mit N q dq tau kp kd");
+    return;
+  }
+  if (line == "estop") {
+    intents[0].flags |= tether::kEstop;
+    intents[0].flags &= ~tether::kEnable;
+    for (size_t i = 0; i < kNodePeerCount; ++i) {
+      auto &intent = intents[kNodePeers[i].id];
+      intent.flags |= tether::kEstop;
+      intent.flags &= ~tether::kEnable;
+    }
+    reportLine("ACK estop");
+    return;
+  }
+  int id = -1; float a = 0, b = 0, c = 0, d = 0, e = 0;
+  const auto known = [&]() {
+    return id == 0 || (id > 0 && id < 256 && peerForId(uint8_t(id)));
+  };
+  if (sscanf(line.c_str(), "reset %d", &id) == 1 && known()) {
+    auto &x = intents[id]; x.reset_cycles = 5;
+    x.flags &= ~(tether::kEnable | tether::kEstop);
+    reportLine("ACK reset " + String(id)); return;
+  }
+  if (sscanf(line.c_str(), "enable %d", &id) == 1 && known()) {
+    intents[id].flags |= tether::kEnable; reportLine("ACK enable " + String(id)); return;
+  }
+  if (sscanf(line.c_str(), "disable %d", &id) == 1 && known()) {
+    intents[id].flags &= ~tether::kEnable; reportLine("ACK disable " + String(id)); return;
+  }
+  if (sscanf(line.c_str(), "zero %d", &id) == 1 && known()) {
+    intents[id].zero_cycles = 5; reportLine("ACK zero " + String(id)); return;
+  }
+  if (sscanf(line.c_str(), "pos %d %f %f", &id, &a, &b) == 3 && known()) {
+    auto &x = intents[id]; x.mode = tether::kPositionVelocity; x.q = a; x.dq = b;
+    reportLine("ACK pos " + String(id)); return;
+  }
+  if (sscanf(line.c_str(), "mit %d %f %f %f %f %f", &id, &a, &b, &c, &d, &e) == 6 && known()) {
+    auto &x = intents[id]; x.mode = tether::kMit; x.q = a; x.dq = b;
+    x.tau = c; x.kp = d; x.kd = e; reportLine("ACK mit " + String(id)); return;
+  }
+  reportLine("ERR bad command; type help");
+}
+
+void pollLaptop() {
+  int packet_size = control_udp.parsePacket();
+  while (packet_size > 0) {
+    char buffer[192];
+    const int length = control_udp.read(buffer, sizeof(buffer) - 1);
+    if (length > 0) {
+      buffer[length] = 0;
+      laptop_ip = control_udp.remoteIP();
+      laptop_port = control_udp.remotePort();
+      have_laptop = true;
+      last_laptop_ms = millis();
+      laptop_watchdog_latched = false;
+      parseOperatorCommand(String(buffer));
+    }
+    packet_size = control_udp.parsePacket();
+  }
+  // USB serial remains an optional diagnostic input, never a requirement.
+  if (Serial.available()) {
+    last_laptop_ms = millis();
+    laptop_watchdog_latched = false;
+    parseOperatorCommand(Serial.readStringUntil('\n'));
+  }
+}
+
+void serviceLaptopWatchdog(uint32_t now) {
+  if (!last_laptop_ms || now - last_laptop_ms <= TETHER_LAPTOP_WATCHDOG_MS ||
+      laptop_watchdog_latched) return;
+  intents[0].flags |= tether::kEstop;
+  intents[0].flags &= ~tether::kEnable;
+  for (size_t i = 0; i < kNodePeerCount; ++i) {
+    auto &intent = intents[kNodePeers[i].id];
+    intent.flags |= tether::kEstop;
+    intent.flags &= ~tether::kEnable;
+  }
+  laptop_watchdog_latched = true;
+  reportLine("WATCHDOG laptop link lost; all motors estopped");
+}
+
+void applyLocalIntent(uint32_t now_us) {
+  auto &intent = intents[0];
+  const uint8_t flags = intent.flags |
+      (intent.reset_cycles ? tether::kResetEstop : 0) |
+      (intent.zero_cycles ? tether::kZeroPosition : 0);
+  if (flags & tether::kEstop) local_estop = true;
+  const uint8_t actions = flags & (tether::kResetEstop | tether::kZeroPosition);
+  if ((actions & tether::kResetEstop) &&
+      !(local_previous_actions & tether::kResetEstop) &&
+      !(flags & tether::kEnable)) local_estop = false;
+  if ((actions & tether::kZeroPosition) &&
+      !(local_previous_actions & tether::kZeroPosition) &&
+      !local_enabled && !local_estop) local_motor.zero();
+  local_previous_actions = actions;
+  local_have_command = true;
+  local_last_command_us = now_us;
+  ++sequences[0];
+  if (intent.reset_cycles) --intent.reset_cycles;
+  if (intent.zero_cycles) --intent.zero_cycles;
+}
+
+void serviceLocalMotor() {
+  local_motor.poll();
+  local_motor.recover();
+  const uint32_t now_ms = millis(), now_us = micros();
+  if (!local_enabled && int32_t(now_ms - local_next_probe_ms) >= 0) {
+    local_motor.refresh();
+    local_motor.poll();
+    if (local_motor.seen() && !local_motor.limits().valid)
+      local_motor.syncLimits();
+    local_next_probe_ms = now_ms + 200;
+  }
+
+  local_watchdog = !local_have_command ||
+      (now_us - local_last_command_us) > TETHER_COMMAND_WATCHDOG_US;
+  CanHealth bus = local_motor.health();
+  const bool bus_off = bus.state == TWAI_ERROR_BUS_OFF;
+  const bool motor_fault = local_motor.feedback().error >= 8;
+  if (bus_off || motor_fault || (local_enabled && !local_motor.seen()))
+    local_estop = true;
+
+  const auto &intent = intents[0];
+  const bool wants_enable = local_have_command &&
+      (intent.flags & tether::kEnable) && intent.mode != tether::kIdle;
+  if (local_estop || local_watchdog || !wants_enable) {
+    if (local_enabled) {
+      local_motor.disable();
+      local_enabled = false;
+    }
+  } else if (!local_enabled && local_motor.limits().valid && local_motor.seen()) {
+    if (local_motor.setControlMode(intent.mode == tether::kMit ? 1 : 2)) {
+      delay(20);
+      local_enabled = local_motor.enable();
+    }
+  }
+
+  if (local_enabled && !local_estop && !local_watchdog &&
+      int32_t(now_ms - local_next_control_ms) >= 0) {
+    if (intent.mode == tether::kPositionVelocity)
+      local_motor.posVel(intent.q, intent.dq);
+    else if (intent.mode == tether::kMit)
+      local_motor.mit(intent.q, intent.dq, intent.tau, intent.kp, intent.kd);
+    local_next_control_ms = now_ms + 10;
+  }
+
+  if (int32_t(now_ms - local_next_telemetry_ms) >= 0) {
+    const auto &f = local_motor.feedback();
+    bus = local_motor.health();
+    const uint16_t flags = (local_enabled ? tether::kNodeEnabled : 0) |
+        (local_watchdog ? tether::kNodeWatchdog : 0) |
+        (local_estop ? tether::kNodeEstop : 0) |
+        (bus.state == TWAI_ERROR_ACTIVE ? tether::kNodeCanActive : 0) |
+        (local_motor.seen() ? tether::kNodeMotorSeen : 0) |
+        (local_motor.limits().valid ? tether::kNodeLimitsValid : 0) |
+        (motor_fault ? tether::kNodeMotorFault : 0) |
+        (bus_off ? tether::kNodeBusOff : 0);
+    char line[280];
+    snprintf(line, sizeof(line),
+             "TEL id=0 seq=%u q=%.3f dq=%.3f tau=%.2f flags=%04x "
+             "motor_status=%u temp=%u/%u rssi=0 can_rx=%lu can_tx=%lu fail=%lu buserr=%lu",
+             ++local_telemetry_sequence, f.q, f.dq, f.tau, flags, f.error,
+             f.mos_c, f.rotor_c, (unsigned long)bus.rx_frames,
+             (unsigned long)bus.tx_frames, (unsigned long)bus.tx_failures,
+             (unsigned long)bus.bus_errors);
+    sendLaptop(String(line));
+    if ((local_telemetry_sequence % 25u) == 0) Serial.println(line);
+    local_next_telemetry_ms = now_ms + TETHER_TELEMETRY_PERIOD_MS;
+  }
+}
+
+void processMasterRadio() {
+  ReceivedPacket packet;
+  while (xQueueReceive(radio_queue, &packet, 0) == pdTRUE) {
+    const uint8_t id = packet.payload.header.source_id;
+    if (id == 0) continue;
+    const PeerDefinition *configured = peerForId(id);
+    if (packet.payload.header.type == tether::kHello &&
+        packet.length == sizeof(tether::Hello) &&
+        tether::valid(packet.payload.hello, packet.length, tether::kHello)) {
+      if (!configured || macIsZero(configured->mac)) {
+        String line = "DISCOVERED unconfigured id=" + String(id) + " mac={";
+        for (size_t i = 0; i < 6; ++i)
+          line += "0x" + String(packet.source_mac[i], HEX) + (i == 5 ? "" : ", ");
+        line += "}";
+        reportLine(line);
+        continue;
+      }
+      if (!macEqual(configured->mac, packet.source_mac)) {
+        reportLine("ID CONFLICT id=" + String(id) + " expected=" +
+                   macString(configured->mac) + " received=" + macString(packet.source_mac));
+        continue;
+      }
+      presence[id].last_seen_ms = millis(); presence[id].rssi = packet.rssi;
+      ++presence[id].hello_count;
+      continue;
+    }
+    if (!configured || macIsZero(configured->mac) ||
+        !macEqual(configured->mac, packet.source_mac)) continue;
+    if (packet.payload.header.type == tether::kTelemetry &&
+        packet.length == sizeof(tether::Telemetry) &&
+        tether::valid(packet.payload.telemetry, packet.length, tether::kTelemetry)) {
+      const auto &t = packet.payload.telemetry;
+      presence[id].last_seen_ms = millis(); presence[id].rssi = packet.rssi;
+      char line[280];
+      snprintf(line, sizeof(line),
+               "TEL id=%u seq=%u q=%.3f dq=%.3f tau=%.2f flags=%04x "
+               "motor_status=%u temp=%u/%u rssi=%d can_rx=%lu can_tx=%lu fail=%lu buserr=%lu",
+               id, t.header.sequence, t.position_rad, t.velocity_rad_s, t.torque_nm,
+               t.node_flags, t.motor_error, t.mos_temperature_c,
+               t.rotor_temperature_c, packet.rssi,
+               (unsigned long)t.can_rx_frames, (unsigned long)t.can_tx_frames,
+               (unsigned long)t.can_tx_failures, (unsigned long)t.can_bus_errors);
+      sendLaptop(String(line));
+      if ((t.header.sequence % 25u) == 0) {
+        Serial.printf("id=%u q=%.3f dq=%.3f tau=%.2f flags=%04x rssi=%d can_rx=%lu can_tx=%lu fail=%lu\n",
+                      id, t.position_rad, t.velocity_rad_s, t.torque_nm,
+                      t.node_flags, packet.rssi, (unsigned long)t.can_rx_frames,
+                      (unsigned long)t.can_tx_frames, (unsigned long)t.can_tx_failures);
+      }
+    }
+  }
+}
+
+void masterLoop() {
+  serviceLocalMotor();
+  if (!master_services_started) {
+    startMasterServices();
+    return;
+  }
+  pollLaptop();
+  processMasterRadio();
+  const uint32_t now = millis();
+  serviceLaptopWatchdog(now);
+  if (int32_t(now - next_command_ms) < 0) return;
+  next_command_ms += TETHER_COMMAND_PERIOD_MS;
+  // Do not saturate the shared SoftAP/ESP-NOW radio with failed unicast
+  // retries during discovery. Commands are useful only when both the laptop
+  // control link and the destination node are currently alive.
+  const bool laptop_online = have_laptop && last_laptop_ms &&
+      now - last_laptop_ms <= TETHER_LAPTOP_WATCHDOG_MS;
+  if (!laptop_online) return;
+  applyLocalIntent(micros());
+  for (size_t i = 0; i < kNodePeerCount; ++i) {
+    const auto &peer = kNodePeers[i];
+    const bool node_online = presence[peer.id].last_seen_ms &&
+        now - presence[peer.id].last_seen_ms <= TETHER_PEER_OFFLINE_MS;
+    if (macIsZero(peer.mac) || !node_online) continue;
+    auto &intent = intents[peer.id];
+    tether::Command command = {};
+    command.header.source_id = 0; command.header.target_id = peer.id;
+    command.header.sequence = ++sequences[peer.id]; command.header.sent_us = micros();
+    command.mode = intent.mode;
+    command.flags = intent.flags |
+        (intent.reset_cycles ? tether::kResetEstop : 0) |
+        (intent.zero_cycles ? tether::kZeroPosition : 0);
+    command.position_rad = intent.q; command.velocity_rad_s = intent.dq;
+    command.torque_nm = intent.tau; command.kp = intent.kp; command.kd = intent.kd;
+    tether::seal(command, tether::kCommand);
+    sendPacket(peer.mac, command);
+    if (intent.reset_cycles) --intent.reset_cycles;
+    if (intent.zero_cycles) --intent.zero_cycles;
+  }
+}
+
+#else
+DamiaoMotor motor(TETHER_MOTOR_SLAVE_ID, TETHER_MOTOR_MASTER_ID);
+tether::Command command = {};
+bool identity_configured = false;
+bool have_command = false, estop = true, enabled = false, watchdog = true;
+uint16_t last_sequence = 0, telemetry_sequence = 0, hello_sequence = 0;
+uint32_t last_command_us = 0, commands_received = 0, command_gaps = 0;
+uint32_t next_telemetry_ms = 0, next_hello_ms = 0, next_probe_ms = 0, next_control_ms = 0;
+int8_t command_rssi = 0;
+uint8_t previous_actions = 0;
+
+void sendHello() {
+  tether::Hello hello = {};
+  hello.header.source_id = TETHER_NODE_ID; hello.header.target_id = tether::kBroadcastId;
+  hello.header.sequence = ++hello_sequence; hello.header.sent_us = micros();
+  hello.uptime_ms = millis(); hello.capabilities = 1;  // bit 0: Damiao/TWAI
+  tether::seal(hello, tether::kHello); sendPacket(kBroadcastMac, hello);
+}
+
+void processNodeRadio() {
+  ReceivedPacket packet;
+  while (xQueueReceive(radio_queue, &packet, 0) == pdTRUE) {
+    if (!identity_configured || !macEqual(packet.source_mac, kMasterApMac) ||
+        packet.length != sizeof(tether::Command) ||
+        !tether::valid(packet.payload.command, packet.length, tether::kCommand)) continue;
+    const auto &candidate = packet.payload.command;
+    if (candidate.header.source_id != 0 || candidate.header.target_id != TETHER_NODE_ID) continue;
+    if (have_command) {
+      const int16_t delta = int16_t(candidate.header.sequence - last_sequence);
+      if (delta <= 0) continue;
+      if (delta > 1) command_gaps += uint16_t(delta - 1);
+    }
+    command = candidate; last_sequence = candidate.header.sequence;
+    have_command = true; last_command_us = micros(); command_rssi = packet.rssi;
+    ++commands_received;
+    if (command.flags & tether::kEstop) estop = true;
+    const uint8_t actions = command.flags & (tether::kResetEstop | tether::kZeroPosition);
+    if ((actions & tether::kResetEstop) && !(previous_actions & tether::kResetEstop) &&
+        !(command.flags & tether::kEnable)) estop = false;
+    if ((actions & tether::kZeroPosition) && !(previous_actions & tether::kZeroPosition) &&
+        !enabled && !estop) motor.zero();
+    previous_actions = actions;
+  }
+}
+
+void nodeLoop() {
+  motor.poll(); motor.recover(); processNodeRadio();
+  const uint32_t now_ms = millis(), now_us = micros();
+  if (!enabled && int32_t(now_ms - next_probe_ms) >= 0) {
+    motor.refresh(); motor.poll();
+    if (motor.seen() && !motor.limits().valid) motor.syncLimits();
+    next_probe_ms += 200;
+  }
+  watchdog = !have_command || (now_us - last_command_us) > TETHER_COMMAND_WATCHDOG_US;
+  CanHealth bus = motor.health();
+  const bool bus_off = bus.state == TWAI_ERROR_BUS_OFF;
+  const bool motor_fault = motor.feedback().error >= 8;
+  if (bus_off || motor_fault || (enabled && !motor.seen())) estop = true;
+  const bool wants_enable = have_command && (command.flags & tether::kEnable) &&
+                            command.mode != tether::kIdle;
+  if (estop || watchdog || !wants_enable) {
+    if (enabled) { motor.disable(); enabled = false; }
+  } else if (!enabled && motor.limits().valid && motor.seen()) {
+    if (motor.setControlMode(command.mode == tether::kMit ? 1 : 2)) {
+      delay(20); enabled = motor.enable();
+    }
+  }
+  if (enabled && !estop && !watchdog && int32_t(now_ms - next_control_ms) >= 0) {
+    if (command.mode == tether::kPositionVelocity)
+      motor.posVel(command.position_rad, command.velocity_rad_s);
+    else if (command.mode == tether::kMit)
+      motor.mit(command.position_rad, command.velocity_rad_s, command.torque_nm,
+                command.kp, command.kd);
+    next_control_ms = now_ms + 10;
+  }
+  if (int32_t(now_ms - next_hello_ms) >= 0) {
+    sendHello(); next_hello_ms += TETHER_HELLO_PERIOD_MS;
+  }
+  if (int32_t(now_ms - next_telemetry_ms) >= 0) {
+    const auto &f = motor.feedback(); const auto &l = motor.limits(); bus = motor.health();
+    tether::Telemetry t = {};
+    t.header.source_id = TETHER_NODE_ID; t.header.target_id = 0;
+    t.header.sequence = ++telemetry_sequence; t.header.sent_us = now_us;
+    t.last_command_sequence = last_sequence;
+    t.node_flags = (enabled ? tether::kNodeEnabled : 0) |
+        (watchdog ? tether::kNodeWatchdog : 0) | (estop ? tether::kNodeEstop : 0) |
+        (bus.state == TWAI_ERROR_ACTIVE ? tether::kNodeCanActive : 0) |
+        (motor.seen() ? tether::kNodeMotorSeen : 0) |
+        (l.valid ? tether::kNodeLimitsValid : 0) |
+        (motor_fault ? tether::kNodeMotorFault : 0) |
+        (bus_off ? tether::kNodeBusOff : 0);
+    t.command_age_us = have_command ? now_us - last_command_us : UINT32_MAX;
+    t.uptime_ms = now_ms; t.position_rad = f.q; t.velocity_rad_s = f.dq; t.torque_nm = f.tau;
+    t.position_limit_rad = l.q; t.velocity_limit_rad_s = l.dq; t.torque_limit_nm = l.tau;
+    t.motor_error = f.error; t.mos_temperature_c = f.mos_c; t.rotor_temperature_c = f.rotor_c;
+    t.command_rssi_dbm = command_rssi; t.can_tx_error_count = bus.tx_error;
+    t.can_rx_error_count = bus.rx_error; t.can_bus_errors = bus.bus_errors;
+    t.can_rx_frames = bus.rx_frames; t.can_tx_frames = bus.tx_frames;
+    t.can_tx_failures = bus.tx_failures; t.command_received = commands_received;
+    t.command_gaps = command_gaps; t.radio_rx_drops = radio_drops;
+    tether::seal(t, tether::kTelemetry); sendPacket(kMasterApMac, t);
+    next_telemetry_ms += TETHER_TELEMETRY_PERIOD_MS;
+  }
+}
+#endif
+}  // namespace
+
+void setup() {
+  Serial.begin(115200); delay(500);
+  // Read the permanent station identity without starting the station radio.
+  // The master must enter AP mode directly; an STA -> AP transition prevented
+  // SoftAP beaconing on the S3/Arduino-ESP32 4.0.0-RC1 bench.
+  uint8_t own_mac[6] = {};
+  if (esp_read_mac(own_mac, ESP_MAC_WIFI_STA) != ESP_OK) {
+    Serial.println("CONFIG ERROR: could not read factory Wi-Fi station MAC");
+    while (true) delay(1000);
+  }
+  Serial.printf("Tether role=%d id=%d Arduino=%s IDF=%s MAC=", TETHER_ROLE,
+                TETHER_NODE_ID, ESP_ARDUINO_VERSION_STR, esp_get_idf_version());
+  printMac(own_mac); Serial.println();
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+  if (macIsZero(kMasterMac) || !macEqual(own_mac, kMasterMac))
+    haltConfiguration("set kMasterMac in PeerConfig.h before using id 0", own_mac);
+#else
+  const PeerDefinition *self = peerForId(TETHER_NODE_ID);
+  if (!self || macIsZero(kMasterMac) || macIsZero(kMasterApMac))
+    haltConfiguration("configure both master MACs and this node id first", own_mac);
+  if (macIsZero(self->mac)) {
+    Serial.println("commissioning mode: broadcasting this node MAC; motor commands are blocked");
+  } else if (!macEqual(own_mac, self->mac)) {
+    haltConfiguration("configured node MAC does not match this ESP", own_mac);
+  } else {
+    identity_configured = true;
+  }
+#endif
+  if (!radioBegin()) haltConfiguration("ESP-NOW initialization failed", own_mac);
+  printRadioState();
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+  uint8_t ap_mac[6] = {};
+  if (esp_wifi_get_mac(WIFI_IF_AP, ap_mac) != ESP_OK ||
+      macIsZero(kMasterApMac) || !macEqual(ap_mac, kMasterApMac))
+    haltConfiguration("set kMasterApMac in PeerConfig.h before using id 0",
+                      ap_mac, "AP");
+  Serial.printf("master AP=%s channel=%u IP=%s UDP=%u\n",
+                TETHER_MASTER_AP_SSID, TETHER_ESPNOW_CHANNEL,
+                WiFi.softAPIP().toString().c_str(), TETHER_CONTROL_UDP_PORT);
+  if (!TETHER_MASTER_MOTOR_CONFIGURED || TETHER_MOTOR_SLAVE_ID == 0 ||
+      TETHER_MOTOR_MASTER_ID == 0)
+    haltConfiguration("set the id-0 motor CAN IDs and TETHER_MASTER_MOTOR_CONFIGURED=1",
+                      own_mac);
+  if (!local_motor.begin((gpio_num_t)TETHER_CAN_TX_GPIO,
+                         (gpio_num_t)TETHER_CAN_RX_GPIO,
+                         TETHER_CAN_BITRATE))
+    haltConfiguration("master local TWAI initialization failed", own_mac);
+  local_next_probe_ms = local_next_control_ms = local_next_telemetry_ms = millis();
+  Serial.println("master AP and local motor ready; estop latched; waiting for laptop association");
+#else
+  if (!addPeer(kMasterApMac)) haltConfiguration("could not register master AP peer", own_mac);
+  if (!motor.begin((gpio_num_t)TETHER_CAN_TX_GPIO, (gpio_num_t)TETHER_CAN_RX_GPIO,
+                   TETHER_CAN_BITRATE))
+    haltConfiguration("TWAI initialization failed", own_mac);
+  next_telemetry_ms = next_hello_ms = next_probe_ms = next_control_ms = millis();
+  Serial.println("node ready; estop latched");
+#endif
+}
+
+void loop() {
+#if TETHER_ROLE == TETHER_ROLE_MASTER
+  masterLoop();
+#else
+  nodeLoop();
+#endif
+  delay(1);
+}
