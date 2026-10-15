@@ -7,6 +7,9 @@ namespace {
 constexpr char kSsid[] = "Tether-Coexist-Test";
 constexpr char kPassword[] = "tether-test";
 constexpr uint8_t kChannel = 1;
+// C5 5 GHz test: replace the line above with this after selecting the
+// XIAO_ESP32C5 board and confirming the channel is permitted locally.
+// constexpr uint8_t kChannel = 36;
 constexpr uint8_t kBroadcastMac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 constexpr uint8_t kNode1Mac[6] = {0x24, 0xEC, 0x4A, 0x3A, 0xEF, 0xB8};
 bool espnow_started = false;
@@ -85,6 +88,13 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   WiFi.mode(WIFI_AP);
+  // C5 5 GHz test: enable after WiFi.mode() and before WiFi.softAP().
+  // #if defined(CONFIG_IDF_TARGET_ESP32C5)
+  // if (!WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY)) {
+  //   Serial.println("Could not select the 5 GHz Wi-Fi band");
+  //   return;
+  // }
+  // #endif
   WiFi.setSleep(false);
   const bool started = WiFi.softAP(kSsid, kPassword, kChannel, 0, 4);
   Serial.printf("softAP=%s SSID=%s password=%s\n",

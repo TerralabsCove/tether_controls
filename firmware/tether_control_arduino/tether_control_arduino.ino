@@ -18,6 +18,12 @@
 #if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32C6)
 #error "Select an ESP32-S3 or ESP32-C6 board"
 #endif
+// C5 migration: replace the guard above with:
+// #if !defined(CONFIG_IDF_TARGET_ESP32S3) && \
+//     !defined(CONFIG_IDF_TARGET_ESP32C6) && \
+//     !defined(CONFIG_IDF_TARGET_ESP32C5)
+// #error "Select an ESP32-S3, ESP32-C6, or ESP32-C5 board"
+// #endif
 #if TETHER_ROLE == TETHER_ROLE_MASTER && TETHER_NODE_ID != 0
 #error "The master must be id 0"
 #endif
@@ -83,6 +89,10 @@ bool radioBegin() {
 #endif
 #if TETHER_ROLE == TETHER_ROLE_MASTER
   WiFi.mode(WIFI_AP);
+  // C5 5 GHz migration: enable immediately after WiFi.mode(), before softAP().
+  // #if defined(CONFIG_IDF_TARGET_ESP32C5)
+  // if (!WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY)) return false;
+  // #endif
   WiFi.setSleep(false);
   // softAP owns the shared AP/STA radio channel. Resetting the channel after
   // AP startup can interrupt beaconing on some Arduino-ESP32/IDF builds.
@@ -94,6 +104,11 @@ bool radioBegin() {
   return true;
 #else
   WiFi.mode(WIFI_STA);
+  // C5 5 GHz migration: enable immediately after WiFi.mode(), before setting
+  // the ESP-NOW channel. All C5 nodes and the master's SoftAP must match.
+  // #if defined(CONFIG_IDF_TARGET_ESP32C5)
+  // if (!WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY)) return false;
+  // #endif
   WiFi.setSleep(false);
   if (esp_wifi_set_channel(TETHER_ESPNOW_CHANNEL,
                            WIFI_SECOND_CHAN_NONE) != ESP_OK) return false;

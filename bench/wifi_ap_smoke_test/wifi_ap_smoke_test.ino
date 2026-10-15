@@ -8,6 +8,9 @@ namespace {
 constexpr char kSsid[] = "Tether-AP-Test";
 constexpr char kPassword[] = "tether-test";
 constexpr uint8_t kChannel = 1;
+// C5 5 GHz test: replace the line above with this after selecting the
+// XIAO_ESP32C5 board and confirming the channel is permitted locally.
+// constexpr uint8_t kChannel = 36;
 
 void printRadioState() {
   wifi_mode_t mode = WIFI_MODE_NULL;
@@ -35,6 +38,13 @@ void setup() {
   Serial.printf("AP smoke test: Arduino=%s IDF=%s\n",
                 ESP_ARDUINO_VERSION_STR, esp_get_idf_version());
   WiFi.mode(WIFI_AP);
+  // C5 5 GHz test: enable after WiFi.mode() and before WiFi.softAP().
+  // #if defined(CONFIG_IDF_TARGET_ESP32C5)
+  // if (!WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY)) {
+  //   Serial.println("Could not select the 5 GHz Wi-Fi band");
+  //   return;
+  // }
+  // #endif
   WiFi.setSleep(false);
   const bool started = WiFi.softAP(kSsid, kPassword, kChannel, 0, 4);
   Serial.printf("softAP returned %s; look for SSID %s password %s\n",

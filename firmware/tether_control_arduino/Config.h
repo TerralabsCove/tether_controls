@@ -21,14 +21,26 @@
 #elif defined(CONFIG_IDF_TARGET_ESP32C6)
 #define TETHER_CAN_TX_GPIO 20  // XIAO D9
 #define TETHER_CAN_RX_GPIO 18  // XIAO D10
+// C5 migration (leave disabled until XIAO ESP32-C5 hardware is tested):
+// Replace the C6 branch above with this branch, or add it as another active
+// #elif. Seeed maps XIAO C5 D9/D10 to GPIO9/GPIO10, unlike the C6.
+// #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+// #define TETHER_CAN_TX_GPIO 9   // XIAO ESP32-C5 D9; verify with transceiver
+// #define TETHER_CAN_RX_GPIO 10  // XIAO ESP32-C5 D10; verify with transceiver
 #else
 #error "Select an ESP32-S3 or ESP32-C6 board"
+// C5 migration: change the message above to "Select an ESP32-S3, ESP32-C6, or ESP32-C5 board".
 #endif
 #define TETHER_CAN_BITRATE 1000000
 
 // Channel 1 is verified visible on the S3 bench. Every master/node build must
 // use the same channel because SoftAP and ESP-NOW share one 2.4 GHz radio.
 #define TETHER_ESPNOW_CHANNEL 1
+// C5 5 GHz migration (do not enable until every module is a C5):
+// Replace channel 1 above with a locally permitted non-DFS channel. Channel 36
+// is the initial bench-test candidate. SoftAP and every ESP-NOW peer must use
+// exactly the same channel.
+// #define TETHER_ESPNOW_CHANNEL 36
 #define TETHER_MASTER_AP_SSID "tether-control"
 #define TETHER_MASTER_AP_PASSWORD "tether-bench"  // Change before field use.
 #define TETHER_CONTROL_UDP_PORT 4210
