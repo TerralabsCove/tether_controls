@@ -18,7 +18,7 @@ uint32_t DamiaoMotor::tx_fail_ = 0;
 
 bool DamiaoMotor::begin(gpio_num_t tx, gpio_num_t rx, uint32_t bitrate) {
   if (!slave_ || !master_ || motor_count_ >= kMaximumMotors) return false;
-  for (size_t i = 0; i < motor_count_; ++i) {
+  for (size_t i = 0; i < motor_count_; i++) {
     if (motors_[i] == this) return true;
     if (motors_[i]->slave_ == slave_ || motors_[i]->master_ == master_ ||
         motors_[i]->slave_ == master_ || motors_[i]->master_ == slave_) return false;
@@ -82,7 +82,7 @@ bool DamiaoMotor::mit(float q, float dq, float tau, float kp, float kd) {
   return send(slave_, d);
 }
 bool DamiaoMotor::dispatch(const Rx &r) {
-  for (size_t i = 0; i < motor_count_; ++i)
+  for (size_t i = 0; i < motor_count_; i++)
     if (motors_[i]->decode(r)) return true;
   return false;
 }

@@ -61,7 +61,7 @@ void onReceive(const esp_now_recv_info_t *info, const uint8_t *data, int length)
   packet.rssi = info->rx_ctrl ? info->rx_ctrl->rssi : 0;
   memcpy(packet.source_mac, info->src_addr, 6);
   memcpy(&packet.payload, data, packet.length);
-  if (xQueueSend(radio_queue, &packet, 0) != pdTRUE) ++radio_drops;
+  if (xQueueSend(radio_queue, &packet, 0) != pdTRUE) radio_drops++;
 }
 
 template <typename T> bool sendPacket(const uint8_t mac[6], const T &packet) {
@@ -93,7 +93,7 @@ void processRadio() {
     last_command_us = micros();
     command_rssi = packet.rssi;
     have_command = true;
-    ++commands_received;
+    commands_received++;
     emitBridgeCommand(command);
   }
 }
@@ -121,7 +121,7 @@ void processBridgeLine(String line) {
     bridge.q = q; bridge.dq = dq; bridge.tau = tau;
     bridge.mos_c = uint8_t(mos); bridge.rotor_c = uint8_t(rotor);
     bridge.last_feedback_ms = millis();
-    ++bridge.feedback_frames;
+    bridge.feedback_frames++;
   }
 }
 
@@ -137,7 +137,8 @@ void sendHello() {
   tether::Hello hello = {};
   hello.header.source_id = TETHER_NODE_ID;
   hello.header.target_id = tether::kBroadcastId;
-  hello.header.sequence = ++hello_sequence;
+  hello_sequence++;
+  hello.header.sequence = hello_sequence;
   hello.header.sent_us = micros();
   hello.uptime_ms = millis();
   hello.capabilities = 2u | (1u << 8);  // laptop serial transport for one selected slot
@@ -153,7 +154,8 @@ void sendTelemetry() {
   tether::Telemetry t = {};
   t.header.source_id = TETHER_NODE_ID;
   t.header.target_id = 0;
-  t.header.sequence = ++telemetry_sequence;
+  telemetry_sequence++;
+  t.header.sequence = telemetry_sequence;
   t.header.sent_us = now_us;
   t.last_command_sequence = last_sequence;
   t.motor_index = bridge.motor_index;

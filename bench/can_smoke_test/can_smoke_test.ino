@@ -76,7 +76,7 @@ void loop() {
   RxFrame frame;
   while (xQueueReceive(rx_queue, &frame, 0) == pdTRUE) {
     Serial.printf("RX %03lX [%u]", static_cast<unsigned long>(frame.id), frame.length);
-    for (uint8_t i = 0; i < frame.length; ++i) Serial.printf(" %02X", frame.data[i]);
+    for (uint8_t i = 0; i < frame.length; i++) Serial.printf(" %02X", frame.data[i]);
     Serial.println();
   }
   twai_node_status_t status;

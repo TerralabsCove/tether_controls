@@ -8,7 +8,7 @@ void printInitializer(const char *label, const uint8_t mac[6]) {
   Serial.printf("%s: %02X:%02X:%02X:%02X:%02X:%02X\n", label,
                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   Serial.printf("%s initializer: {", label);
-  for (size_t i = 0; i < 6; ++i)
+  for (size_t i = 0; i < 6; i++)
     Serial.printf("0x%02X%s", mac[i], i == 5 ? "" : ", ");
   Serial.println("}");
 }
