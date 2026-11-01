@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!-- Female dock (FemaleAssembly of EndEffectorAssembly_v3 in Fusion "ArmAssem-copy"). Static obstacle,
+     NOT part of the arm. Frame = EE3_DockBasePlate:1 part frame. Lengths m.
+     Docked pose, in the arm URDF, of this frame relative to link EndEffectorAssembly_v3_N
+     (world-aligned frames, CAD zero pose):
+       EndEffectorAssembly_v3_1: xyz="0.000682593492 -0.00219814401 0.0523494243" rpy="-0.000658808122 0.0439345587 -1.28470452" (rpy is world-relative)
+       EndEffectorAssembly_v3_2: xyz="-2.09228589e-11 1.37687084e-12 -0.0524" rpy="3.14159265 3.79208276e-10 -0.390706101" (rpy is world-relative)
+-->
+<robot name="dock_female">
+  <link name="dock_female">
+    <inertial>
+      <origin xyz="0 0 -0.0217308786" rpy="0 0 0"/>
+      <mass value="0.395940186"/>
+      <inertia ixx="0.000489630531" ixy="0" ixz="0" iyy="0.000489630531" iyz="0" izz="0.000858154376"/>
+    </inertial>
+    <visual name="FemaleAssembly_1__EE3_DockBasePlate_1">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_DockBasePlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="FemaleAssembly_1__EE3_DockBasePlate_1">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_DockBasePlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="FemaleAssembly_1__EE3_DockWall_1">
+      <origin xyz="0 0.0312 -0.03755" rpy="-1.57079633 0 0"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_DockWall.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="FemaleAssembly_1__EE3_DockWall_1">
+      <origin xyz="0 0.0312 -0.03755" rpy="-1.57079633 0 0"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_DockWall.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+</robot>
