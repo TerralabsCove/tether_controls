@@ -9,6 +9,8 @@ robot.
 |---|---|---|
 | `firmware/tether_control_arduino/` | Canonical ESP32-S3/XIAO ESP32-C6 firmware | Yes |
 | `bench/` | Hardware probes, smoke tests, laptop clients, USB-CAN bridge, and simulator | No; use individual tools while commissioning |
+| `description/terra_arm_description/` | Tether arm URDF (v0.2.0, masses corrected to 14.35 kg) and meshes | No; model for sim and analysis |
+| `sim/step_reach_sim/` | Step-reach, torque and dock-load analysis on that URDF, plus the concept clips | No; offline analysis |
 | `archive/tether_control_idf/` | Superseded native ESP-IDF experiment | No; reference only |
 | `archive/legacy_one_motor_bench_firmware/` | Firmware snapshot from the original one-motor S3 test | No; historical evidence only |
 
@@ -43,4 +45,5 @@ robot deployment.
 
 - Deploy or edit firmware: [`firmware/tether_control_arduino/README.md`](firmware/tether_control_arduino/README.md)
 - Scan motors and run hardware tests: [`bench/README.md`](bench/README.md)
+- Arm model and step-reach simulation: [`sim/step_reach_sim/README.md`](sim/step_reach_sim/README.md)
 - Consult the old native-IDF work only if needed: [`archive/tether_control_idf/README.md`](archive/tether_control_idf/README.md)

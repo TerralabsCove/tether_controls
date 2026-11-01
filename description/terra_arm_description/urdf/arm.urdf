@@ -1,0 +1,1228 @@
+<?xml version="1.0"?>
+<!-- Generated from Fusion "ArmAssem-copy" (MainArm). Lengths m, mass kg, inertia kg*m^2.
+     Zero pose = CAD pose. Joint effort/velocity are PLACEHOLDERS (no limits in the CAD).
+     Masses updated 2026-10-31 (sim/step_reach_sim/apply_measured_masses.py), total 14.35 kg:
+       DM-J10010 1.485 kg and DM-J4340P 0.375 kg (user manuals; the motor is the plain DM-J10010-2EC
+       although the link names say J10010L); LiPo 3200 mAh 0.218 kg and 5000 mAh 0.689 kg (weighed);
+       slip ring 10.5 oz with aluminium base plate and pin; gripper: aluminium housing, TPU jaws and fingers,
+       steel pins, servos 3.52 oz each. Structure links keep the Fusion aluminium masses.
+       Not included: wiring, ESP boards, DC-DC converters, connectors, fasteners. -->
+<robot name="terra_arm">
+  <link name="DM-J10010L-2EC_Motor_1">
+    <inertial>
+      <origin xyz="-0.00777044103 0.0264156494 0.00120587124" rpy="0 0 0"/>
+      <mass value="1.485"/>
+      <inertia ixx="0.00156111278" ixy="-0.000257335179" ixz="-1.14783573e-05" iyy="0.00236030369" iyz="3.71820536e-05" izz="0.00155647255"/>
+    </inertial>
+    <visual name="DM-J10010L-2EC_Motor_1">
+      <origin xyz="0 0 0" rpy="0.0439357894 -0.00748243734 0.285762848"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J10010L-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J10010L-2EC_Motor_1">
+      <origin xyz="0 0 0" rpy="0.0439357894 -0.00748243734 0.285762848"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J10010L-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="BracketLarge_Adapter_1">
+    <inertial>
+      <origin xyz="-0.00601873385 0.0200865906 0.0150262083" rpy="0 0 0"/>
+      <mass value="0.322320165"/>
+      <inertia ixx="0.000449078606" ixy="-3.92288236e-05" ixz="-3.01467919e-05" iyy="0.00056810897" iyz="0.000102799935" izz="0.000430199534"/>
+    </inertial>
+    <visual name="BracketLarge_Adapter_1">
+      <origin xyz="0 0 0" rpy="-0.00748966476 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketLarge_Adapter.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BracketLarge_Adapter_1">
+      <origin xyz="0 0 0" rpy="-0.00748966476 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketLarge_Adapter.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="CentralBatteryMount_1">
+    <inertial>
+      <origin xyz="-0.00362191309 0.0123052985 0.000841886367" rpy="0 0 0"/>
+      <mass value="0.0830780089"/>
+      <inertia ixx="0.000131711328" ixy="-3.04493497e-05" ixz="-1.27113135e-06" iyy="0.000226290193" iyz="3.89328443e-06" izz="0.000139074144"/>
+    </inertial>
+    <visual name="CentralBatteryMount_1">
+      <origin xyz="0 0 0" rpy="3.13410299 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CentralBatteryMount.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="CentralBatteryMount_1">
+      <origin xyz="0 0 0" rpy="3.13410299 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CentralBatteryMount.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="MiddleSpacer_1">
+    <inertial>
+      <origin xyz="0.00176207954 -0.00599017729 -0.000274502659" rpy="0 0 0"/>
+      <mass value="0.0783457052"/>
+      <inertia ixx="1.69055011e-05" ixy="-3.72100425e-06" ixz="-1.70516803e-07" iyy="2.84604532e-05" iyz="5.79670689e-07" izz="1.58374846e-05"/>
+    </inertial>
+    <visual name="MiddleSpacer_1">
+      <origin xyz="0.00176207954 -0.00599017729 -0.000274502662" rpy="1.55581188 -1.52685683 -1.26970561"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/MiddleSpacer.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="MiddleSpacer_1">
+      <origin xyz="0.00176207954 -0.00599017729 -0.000274502662" rpy="1.55581188 -1.52685683 -1.26970561"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/MiddleSpacer.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="DM-J4340P-2EC_Motor_3">
+    <inertial>
+      <origin xyz="-0.000190007056 0.00161399421 -0.0294521743" rpy="0 0 0"/>
+      <mass value="0.375"/>
+      <inertia ixx="0.000167899772" ixy="-1.3627767e-08" ixz="-8.04544885e-08" iyy="0.000167755073" iyz="6.71946775e-07" izz="0.000152615857"/>
+    </inertial>
+    <visual name="DM-J4340P-2EC_Motor_3">
+      <origin xyz="-3.63645206e-05 0.000308894471 1.3871056e-05" rpy="-1.57079633 0.0445679754 -1.45361096"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J4340P-2EC_Motor_3">
+      <origin xyz="-3.63645206e-05 0.000308894471 1.3871056e-05" rpy="-1.57079633 0.0445679754 -1.45361096"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="CentralBatteryMountCover_1">
+    <inertial>
+      <origin xyz="-0.00042289909 0.00143764255 6.5880639e-05" rpy="0 0 0"/>
+      <mass value="0.0354090538"/>
+      <inertia ixx="3.32229761e-05" ixy="-9.54099386e-06" ixz="-4.11453032e-07" iyy="6.28569299e-05" iyz="1.26771514e-06" izz="3.54164408e-05"/>
+    </inertial>
+    <visual name="CentralBatteryMountCover_1">
+      <origin xyz="0 0 0" rpy="1.52686054 0.00748243734 -2.85582981"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CentralBatteryMountCover.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="CentralBatteryMountCover_1">
+      <origin xyz="0 0 0" rpy="1.52686054 0.00748243734 -2.85582981"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CentralBatteryMountCover.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="LiPo_3200mAh_batt_3">
+    <inertial>
+      <origin xyz="-0.00533152772 -0.0166879844 0.0453343844" rpy="0 0 0"/>
+      <mass value="0.218"/>
+      <inertia ixx="0.000166758243" ixy="-5.56313413e-06" ixz="-8.89616781e-07" iyy="0.000183885736" iyz="6.25134395e-06" izz="4.36816875e-05"/>
+    </inertial>
+    <visual name="LiPo_3200mAh_batt_3">
+      <origin xyz="0 0 0" rpy="-0.0439357894 0.00748243734 -2.85582981"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_3200mAh_batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="LiPo_3200mAh_batt_3">
+      <origin xyz="0 0 0" rpy="-0.0439357894 0.00748243734 -2.85582981"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_3200mAh_batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="LiPo_3200mAh_batt_4">
+    <inertial>
+      <origin xyz="-0.00533152772 -0.0166879844 0.0453343844" rpy="0 0 0"/>
+      <mass value="0.218"/>
+      <inertia ixx="0.000166758243" ixy="-5.56313413e-06" ixz="-8.89616781e-07" iyy="0.000183885736" iyz="6.25134395e-06" izz="4.36816875e-05"/>
+    </inertial>
+    <visual name="LiPo_3200mAh_batt_4">
+      <origin xyz="0 0 0" rpy="-0.0439357894 0.00748243734 -2.85582981"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_3200mAh_batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="LiPo_3200mAh_batt_4">
+      <origin xyz="0 0 0" rpy="-0.0439357894 0.00748243734 -2.85582981"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_3200mAh_batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="BracketSmall_Adapter_1">
+    <inertial>
+      <origin xyz="-0.00704303136 0.0238579558 -0.0349031358" rpy="0 0 0"/>
+      <mass value="0.279852771"/>
+      <inertia ixx="0.000372416177" ixy="6.01375885e-06" ixz="-2.64945236e-05" iyy="0.000353971525" iyz="8.95647117e-05" izz="0.00015967937"/>
+    </inertial>
+    <visual name="BracketSmall_Adapter_1">
+      <origin xyz="0 0 0" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketSmall_Adapter.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BracketSmall_Adapter_1">
+      <origin xyz="0 0 0" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketSmall_Adapter.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="EndBlock_1">
+    <inertial>
+      <origin xyz="3.30774337e-05 -0.000280972647 0.00634369453" rpy="0 0 0"/>
+      <mass value="0.125219231"/>
+      <inertia ixx="3.56896818e-05" ixy="-9.71016983e-07" ixz="1.67520776e-07" iyy="4.38235674e-05" iyz="-1.4229869e-06" izz="7.60016422e-05"/>
+    </inertial>
+    <visual name="EndBlock_1">
+      <origin xyz="0 0 0" rpy="-3.97778026e-10 0.0445679754 -1.45361096"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EndBlock_1">
+      <origin xyz="0 0 0" rpy="-3.97778026e-10 0.0445679754 -1.45361096"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="DM-J4340P-2EC_Motor_1">
+    <inertial>
+      <origin xyz="0.000384223778 -0.00123730919 0.0294668654" rpy="0 0 0"/>
+      <mass value="0.375"/>
+      <inertia ixx="0.000167867471" ixy="6.18003536e-08" ixz="-1.96666564e-07" iyy="0.00016778822" iyz="6.37544869e-07" izz="0.000152615011"/>
+    </inertial>
+    <visual name="DM-J4340P-2EC_Motor_1">
+      <origin xyz="0 0 0" rpy="1.57145513 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J4340P-2EC_Motor_1">
+      <origin xyz="0 0 0" rpy="1.57145513 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="LiPo_5000mAh_Batt_2">
+    <inertial>
+      <origin xyz="-0.0227529401 -0.029106953 0.0779079682" rpy="0 0 0"/>
+      <mass value="0.689460402"/>
+      <inertia ixx="0.00155371579" ixy="-3.92483664e-06" ixz="-6.84497132e-06" iyy="0.00158659284" iyz="5.81438617e-05" izz="0.000276915672"/>
+    </inertial>
+    <visual name="LiPo_5000mAh_Batt_2">
+      <origin xyz="0 0 0" rpy="1.57079633 0.0445679754 -1.45361096"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_5000mAh_Batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="LiPo_5000mAh_Batt_2">
+      <origin xyz="0 0 0" rpy="1.57079633 0.0445679754 -1.45361096"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_5000mAh_Batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_1">
+    <inertial>
+      <origin xyz="0.000278132997 -0.00236257021 -0.000106092361" rpy="0 0 0"/>
+      <mass value="0.179118914"/>
+      <inertia ixx="0.000582511105" ixy="-8.90979981e-06" ixz="-3.02233132e-06" iyy="0.000657145528" iyz="2.56728635e-05" izz="7.97150471e-05"/>
+    </inertial>
+    <visual name="SidePanel_1">
+      <origin xyz="0 0 0" rpy="-0.0445679754 -3.97383152e-10 -3.02440729"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_1">
+      <origin xyz="0 0 0" rpy="-0.0445679754 -3.97383152e-10 -3.02440729"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_2">
+    <inertial>
+      <origin xyz="-0.000278132997 0.00236257021 0.000106092361" rpy="0 0 0"/>
+      <mass value="0.179118914"/>
+      <inertia ixx="0.000582511105" ixy="-8.90979981e-06" ixz="-3.02233132e-06" iyy="0.000657145528" iyz="2.56728635e-05" izz="7.97150471e-05"/>
+    </inertial>
+    <visual name="SidePanel_2">
+      <origin xyz="0 0 0" rpy="0.0445679754 3.97382977e-10 0.117185362"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_2">
+      <origin xyz="0 0 0" rpy="0.0445679754 3.97382977e-10 0.117185362"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_ShortSide_2">
+    <inertial>
+      <origin xyz="-0.00237537675 -0.000189573427 3.98922413e-06" rpy="0 0 0"/>
+      <mass value="0.136907284"/>
+      <inertia ixx="0.000471496736" ixy="4.17617333e-06" ixz="-2.08743934e-06" iyy="0.000436514324" iyz="1.77315253e-05" izz="3.64832313e-05"/>
+    </inertial>
+    <visual name="SidePanel_ShortSide_2">
+      <origin xyz="0 0 0" rpy="-1.57079633 -0.0445679754 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_ShortSide_2">
+      <origin xyz="0 0 0" rpy="-1.57079633 -0.0445679754 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_ShortSide_3">
+    <inertial>
+      <origin xyz="0.00235446036 0.000367245405 3.98922223e-06" rpy="0 0 0"/>
+      <mass value="0.136907284"/>
+      <inertia ixx="0.000471496736" ixy="4.17617333e-06" ixz="-2.08743934e-06" iyy="0.000436514324" iyz="1.77315253e-05" izz="3.64832313e-05"/>
+    </inertial>
+    <visual name="SidePanel_ShortSide_3">
+      <origin xyz="0 0 0" rpy="1.57079633 -0.0445679754 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_ShortSide_3">
+      <origin xyz="0 0 0" rpy="1.57079633 -0.0445679754 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="EndBlock_3">
+    <inertial>
+      <origin xyz="-8.27188679e-05 0.000266378139 -0.00634387108" rpy="0 0 0"/>
+      <mass value="0.125219231"/>
+      <inertia ixx="4.32198189e-05" ixy="2.22479569e-06" ixz="5.21700068e-07" iyy="3.63076499e-05" iyz="-1.69843708e-06" izz="7.59874225e-05"/>
+    </inertial>
+    <visual name="EndBlock_3">
+      <origin xyz="0 0 0" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EndBlock_3">
+      <origin xyz="0 0 0" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="EndBlock_2">
+    <inertial>
+      <origin xyz="-3.30774337e-05 0.000280972647 -0.00634369453" rpy="0 0 0"/>
+      <mass value="0.125219231"/>
+      <inertia ixx="3.56896818e-05" ixy="-9.71016983e-07" ixz="1.67520776e-07" iyy="4.38235674e-05" iyz="-1.4229869e-06" izz="7.60016422e-05"/>
+    </inertial>
+    <visual name="EndBlock_2">
+      <origin xyz="0 0 0" rpy="-3.14159265 -0.0445679754 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EndBlock_2">
+      <origin xyz="0 0 0" rpy="-3.14159265 -0.0445679754 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="LiPo_5000mAh_Batt_3">
+    <inertial>
+      <origin xyz="-0.0155239655 -0.0280259367 -0.0800507081" rpy="0 0 0"/>
+      <mass value="0.689460402"/>
+      <inertia ixx="0.0015865484" ixy="1.05577934e-05" ixz="-1.666726e-05" iyy="0.00155390353" iyz="5.35924871e-05" izz="0.000276772362"/>
+    </inertial>
+    <visual name="LiPo_5000mAh_Batt_3">
+      <origin xyz="0 0 0" rpy="-1.6147309 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_5000mAh_Batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="LiPo_5000mAh_Batt_3">
+      <origin xyz="0 0 0" rpy="-1.6147309 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/LiPo_5000mAh_Batt.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_3">
+    <inertial>
+      <origin xyz="0.00228444205 0.000672066684 -1.56727458e-06" rpy="0 0 0"/>
+      <mass value="0.179118914"/>
+      <inertia ixx="0.000653057951" ixy="2.13628831e-05" ixz="-6.59392869e-06" iyy="0.000586781187" iyz="2.10614803e-05" izz="7.95325424e-05"/>
+    </inertial>
+    <visual name="SidePanel_3">
+      <origin xyz="0 0 0" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_3">
+      <origin xyz="0 0 0" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_4">
+    <inertial>
+      <origin xyz="0.00228444205 0.000672066684 -1.56727458e-06" rpy="0 0 0"/>
+      <mass value="0.179118914"/>
+      <inertia ixx="0.000653057951" ixy="2.13628831e-05" ixz="-6.59392869e-06" iyy="0.000586781187" iyz="2.10614803e-05" izz="7.95325424e-05"/>
+    </inertial>
+    <visual name="SidePanel_4">
+      <origin xyz="0 0 0" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_4">
+      <origin xyz="0 0 0" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="BracketSmall_3">
+    <inertial>
+      <origin xyz="0.023058312 0.00434593554 -0.0363244824" rpy="0 0 0"/>
+      <mass value="0.282296787"/>
+      <inertia ixx="0.000367203791" ixy="-5.2883883e-06" ixz="8.38902442e-05" iyy="0.000378599984" iyz="2.00690905e-05" izz="0.000153090356"/>
+    </inertial>
+    <visual name="BracketSmall_3">
+      <origin xyz="0 0 0" rpy="3.09702468 -3.37416299e-10 -3.02440729"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketSmall.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BracketSmall_3">
+      <origin xyz="0 0 0" rpy="3.09702468 -3.37416299e-10 -3.02440729"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketSmall.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="EndBlock_4">
+    <inertial>
+      <origin xyz="-8.27188679e-05 0.000266378139 -0.00634387108" rpy="0 0 0"/>
+      <mass value="0.125219231"/>
+      <inertia ixx="4.32198189e-05" ixy="2.22479569e-06" ixz="5.21700068e-07" iyy="3.63076499e-05" iyz="-1.69843708e-06" izz="7.59874225e-05"/>
+    </inertial>
+    <visual name="EndBlock_4">
+      <origin xyz="0 0 0" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EndBlock_4">
+      <origin xyz="0 0 0" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EndBlock.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="DM-J10010L-2EC_Motor_3">
+    <inertial>
+      <origin xyz="-0.0263790445 -0.00310547587 -4.63343887e-06" rpy="0 0 0"/>
+      <mass value="1.485"/>
+      <inertia ixx="0.00242469587" ixy="0.000110576274" ixz="-1.67002098e-07" iyy="0.0014984347" iyz="-1.96312127e-08" izz="0.00155475846"/>
+    </inertial>
+    <visual name="DM-J10010L-2EC_Motor_3">
+      <origin xyz="0.000993141649 0.00011691734 0" rpy="3.37417039e-10 -6.61704511e-11 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J10010L-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J10010L-2EC_Motor_3">
+      <origin xyz="0.000993141649 0.00011691734 0" rpy="3.37417039e-10 -6.61704511e-11 1.68798169"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J10010L-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="BracketSmall_2">
+    <inertial>
+      <origin xyz="0.00707299434 -0.023960532 0.0352974019" rpy="0 0 0"/>
+      <mass value="0.282296787"/>
+      <inertia ixx="0.000378343182" ixy="5.98971574e-06" ixz="-2.68914051e-05" iyy="0.000359975276" iyz="9.08886347e-05" izz="0.000160575672"/>
+    </inertial>
+    <visual name="BracketSmall_2">
+      <origin xyz="0 0 0" rpy="0.000658808122 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketSmall.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BracketSmall_2">
+      <origin xyz="0 0 0" rpy="0.000658808122 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketSmall.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_ShortSide_1">
+    <inertial>
+      <origin xyz="0.000757250565 -0.00225698689 -0.000104644446" rpy="0 0 0"/>
+      <mass value="0.136907284"/>
+      <inertia ixx="0.00043954634" ixy="-9.28401674e-06" ixz="-5.65582858e-06" iyy="0.000468419162" iyz="1.82914111e-05" izz="3.65287894e-05"/>
+    </inertial>
+    <visual name="SidePanel_ShortSide_1">
+      <origin xyz="0 0 0" rpy="1.6147309 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_ShortSide_1">
+      <origin xyz="0 0 0" rpy="1.6147309 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SidePanel_ShortSide_4">
+    <inertial>
+      <origin xyz="-0.000585454047 0.00230752821 0.000104526583" rpy="0 0 0"/>
+      <mass value="0.136907284"/>
+      <inertia ixx="0.00043954634" ixy="-9.28401674e-06" ixz="-5.65582858e-06" iyy="0.000468419162" iyz="1.82914111e-05" izz="3.65287894e-05"/>
+    </inertial>
+    <visual name="SidePanel_ShortSide_4">
+      <origin xyz="0 0 0" rpy="-1.52686176 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SidePanel_ShortSide_4">
+      <origin xyz="0 0 0" rpy="-1.52686176 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SidePanel_ShortSide.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="BracketLarge_3">
+    <inertial>
+      <origin xyz="0.0215409222 0.00253618624 0.0139816734" rpy="0 0 0"/>
+      <mass value="0.32456467"/>
+      <inertia ixx="0.000588437602" ixy="1.75922973e-05" ixz="0.000100076317" iyy="0.000441085005" iyz="1.17734112e-05" izz="0.00042216718"/>
+    </inertial>
+    <visual name="BracketLarge_3">
+      <origin xyz="0 0 0" rpy="6.61809288e-11 3.37417038e-10 0.117185362"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketLarge.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BracketLarge_3">
+      <origin xyz="0 0 0" rpy="6.61809288e-11 3.37417038e-10 0.117185362"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketLarge.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="DM-J10010L-2EC_Motor_2">
+    <inertial>
+      <origin xyz="-0.00748840517 0.0254568271 0.0011712087" rpy="0 0 0"/>
+      <mass value="1.485"/>
+      <inertia ixx="0.00156112447" ixy="-0.000257364225" ixz="-1.08422095e-05" iyy="0.00236031766" iyz="3.70198123e-05" izz="0.00155644689"/>
+    </inertial>
+    <visual name="DM-J10010L-2EC_Motor_2">
+      <origin xyz="0.000281932727 -0.000958428366 -4.3920426e-05" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J10010L-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J10010L-2EC_Motor_2">
+      <origin xyz="0.000281932727 -0.000958428366 -4.3920426e-05" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J10010L-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="DM-J4340P-2EC_Motor_4">
+    <inertial>
+      <origin xyz="8.97476741e-11 1.88459328e-10 0.0294953338" rpy="0 0 0"/>
+      <mass value="0.375"/>
+      <inertia ixx="0.000167900701" ixy="-1.53453358e-08" ixz="0" iyy="0.000167784325" iyz="1.62705858e-12" izz="0.000152585677"/>
+    </inertial>
+    <visual name="DM-J4340P-2EC_Motor_4">
+      <origin xyz="0 0 0" rpy="1.57079633 -1.27816903e-10 -1.96150243"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J4340P-2EC_Motor_4">
+      <origin xyz="0 0 0" rpy="1.57079633 -1.27816903e-10 -1.96150243"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="BracketLarge_2">
+    <inertial>
+      <origin xyz="0.00593263257 -0.0202015933 -0.0149207997" rpy="0 0 0"/>
+      <mass value="0.32456467"/>
+      <inertia ixx="0.000450311552" ixy="-3.84753056e-05" ixz="-3.04270395e-05" iyy="0.000570043435" iyz="0.000103379482" izz="0.000431334799"/>
+    </inertial>
+    <visual name="BracketLarge_2">
+      <origin xyz="0 0 0" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketLarge.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BracketLarge_2">
+      <origin xyz="0 0 0" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BracketLarge.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SlipRing_2_stator">
+    <inertial>
+      <origin xyz="0.000172940632 -7.12309655e-05 -0.0257285244" rpy="0 0 0"/>
+      <mass value="0.373786227"/>
+      <inertia ixx="0.000299118113" ixy="1.13648225e-06" ixz="-1.4269932e-06" iyy="0.00030140927" iyz="5.87751103e-07" izz="0.000378628346"/>
+    </inertial>
+    <visual name="BasePlate_1">
+      <origin xyz="0 0 0" rpy="3.14159265 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BasePlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BasePlate_1">
+      <origin xyz="0 0 0" rpy="3.14159265 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BasePlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="SlipRingBase_1">
+      <origin xyz="-2.59935302e-12 0 -0.00651" rpy="-3.14159265 -3.79208217e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SlipRingBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SlipRingBase_1">
+      <origin xyz="-2.59935302e-12 0 -0.00651" rpy="-3.14159265 -3.79208217e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SlipRingBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="DM-J4340P-2EC_Motor_2">
+    <inertial>
+      <origin xyz="-0.000384223662 0.0012373088 -0.0294668654" rpy="0 0 0"/>
+      <mass value="0.375"/>
+      <inertia ixx="0.000167900022" ixy="1.12608736e-08" ixz="-1.99214134e-07" iyy="0.000167755665" iyz="6.36840288e-07" izz="0.000152615015"/>
+    </inertial>
+    <visual name="DM-J4340P-2EC_Motor_2">
+      <origin xyz="0 0 0" rpy="-1.57013752 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="DM-J4340P-2EC_Motor_2">
+      <origin xyz="0 0 0" rpy="-1.57013752 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/DM-J4340P-2EC_Motor.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SlipRing_2_rotor">
+    <inertial>
+      <origin xyz="-9.32568634e-12 7.42143097e-13 -0.00185875455" rpy="0 0 0"/>
+      <mass value="0.115269516"/>
+      <inertia ixx="6.48376083e-05" ixy="4.34864863e-12" ixz="-3.29005916e-14" iyy="6.48376187e-05" iyz="1.84648983e-14" izz="1.37857074e-05"/>
+    </inertial>
+    <visual name="PinBase_1">
+      <origin xyz="1.43794664e-11 0 0.0360125" rpy="3.14159265 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="PinBase_1">
+      <origin xyz="1.43794664e-11 0 0.0360125" rpy="3.14159265 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="Pin_1">
+      <origin xyz="0 0 0" rpy="-1.27769751e-10 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/Pin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="Pin_1">
+      <origin xyz="0 0 0" rpy="-1.27769751e-10 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/Pin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="PinBase_2">
+      <origin xyz="-1.2477851e-11 0 -0.03125" rpy="3.14159265 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="PinBase_2">
+      <origin xyz="-1.2477851e-11 0 -0.03125" rpy="3.14159265 3.79208216e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="slipRingRotator_1">
+      <origin xyz="-7.48572233e-12 0 -0.0187475" rpy="-3.14159265 -3.79208217e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/slipRingRotator.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="slipRingRotator_1">
+      <origin xyz="-7.48572233e-12 0 -0.0187475" rpy="-3.14159265 -3.79208217e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/slipRingRotator.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SlipRing_1_stator">
+    <inertial>
+      <origin xyz="0.000514586836 -0.00102650635 0.0257035685" rpy="0 0 0"/>
+      <mass value="0.373786227"/>
+      <inertia ixx="0.000298958692" ixy="-9.72207845e-07" ixz="2.47998836e-06" iyy="0.000301718808" iyz="-2.78075311e-06" izz="0.000378478229"/>
+    </inertial>
+    <visual name="BasePlate_1">
+      <origin xyz="0 0 0" rpy="0.0439345682 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BasePlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="BasePlate_1">
+      <origin xyz="0 0 0" rpy="0.0439345682 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/BasePlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="SlipRingBase_1">
+      <origin xyz="8.48031228e-05 -0.000273090029 0.00650371665" rpy="-0.0439345682 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SlipRingBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="SlipRingBase_1">
+      <origin xyz="8.48031228e-05 -0.000273090029 0.00650371665" rpy="-0.0439345682 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/SlipRingBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="EndEffectorAssembly_v3_2">
+    <inertial>
+      <origin xyz="0.00195688821 -0.000417740694 -0.00254362616" rpy="0 0 0"/>
+      <mass value="0.911573759"/>
+      <inertia ixx="0.00127208198" ixy="2.6352131e-05" ixz="-3.71787878e-05" iyy="0.00131512075" iyz="4.25249383e-05" izz="0.000758832324"/>
+    </inertial>
+    <visual name="CamRotor_v1_1">
+      <origin xyz="-4.19255733e-12 0 -0.0105" rpy="-1.57079633 -1.67683981e-10 -2.0689073"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CamRotor_v1.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="CamRotor_v1_1">
+      <origin xyz="-4.19255733e-12 0 -0.0105" rpy="-1.57079633 -1.67683981e-10 -2.0689073"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CamRotor_v1.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_ClawJawA_1">
+      <origin xyz="0.00615265402 -0.00372381031 -0.0356919225" rpy="-1.45156803e-10 0.494477407 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawA.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_ClawJawA_1">
+      <origin xyz="0.00615265402 -0.00372381031 -0.0356919225" rpy="-1.45156803e-10 0.494477407 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawA.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_ClawJawB_1">
+      <origin xyz="-0.00699050513 0.00168960148 -0.0356919225" rpy="-1.45157203e-10 -0.494477406 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawB.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_ClawJawB_1">
+      <origin xyz="-0.00699050513 0.00168960148 -0.0356919225" rpy="-1.45157203e-10 -0.494477406 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawB.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_FrontCover_1">
+      <origin xyz="0.0201845942 0.04900594 -0.02885" rpy="1.27769753e-10 -3.79208343e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_FrontCover.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_FrontCover_1">
+      <origin xyz="0.0201845942 0.04900594 -0.02885" rpy="1.27769753e-10 -3.79208343e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_FrontCover.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_LowerBody_1">
+      <origin xyz="-1.15195527e-11 0 -0.02885" rpy="-1.27769753e-10 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LowerBody.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_LowerBody_1">
+      <origin xyz="-1.15195527e-11 0 -0.02885" rpy="-1.27769753e-10 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LowerBody.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_PinPlate_1">
+      <origin xyz="-1.15195561e-11 0 -0.02885" rpy="1.27769753e-10 -3.7920822e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PinPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_PinPlate_1">
+      <origin xyz="-1.15195561e-11 0 -0.02885" rpy="1.27769753e-10 -3.7920822e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PinPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_TopPlate_1">
+      <origin xyz="-1.1160185e-11 0 -0.02795" rpy="-1.27769753e-10 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_TopPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_TopPlate_1">
+      <origin xyz="-1.1160185e-11 0 -0.02795" rpy="-1.27769753e-10 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_TopPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_UpperHousing_1">
+      <origin xyz="-1.11601882e-11 0 -0.02795" rpy="-1.27769753e-10 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_UpperHousing.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_UpperHousing_1">
+      <origin xyz="-1.11601882e-11 0 -0.02795" rpy="-1.27769753e-10 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_UpperHousing.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_1">
+      <origin xyz="-0.0136635501 0.019795421 -0.0715395698" rpy="-1.57079633 -0.494477407 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_1">
+      <origin xyz="-0.0136635501 0.019795421 -0.0715395698" rpy="-1.57079633 -0.494477407 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_2">
+      <origin xyz="-0.00536120759 0.0399525812 -0.0715395698" rpy="-1.57079633 -0.494477407 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_2">
+      <origin xyz="-0.00536120759 0.0399525812 -0.0715395698" rpy="-1.57079633 -0.494477407 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_3">
+      <origin xyz="0.0273738405 0.0134916326 -0.0715395697" rpy="-1.57079633 -0.494477406 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_3">
+      <origin xyz="0.0273738405 0.0134916326 -0.0715395697" rpy="-1.57079633 -0.494477406 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_4">
+      <origin xyz="0.019071498 -0.00666552766 -0.0715395697" rpy="-1.57079633 -0.494477406 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_4">
+      <origin xyz="0.019071498 -0.00666552766 -0.0715395697" rpy="-1.57079633 -0.494477406 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_1">
+      <origin xyz="-0.00255163739 -0.00619509053 -0.02875" rpy="-3.79208282e-10 -1.27769692e-10 -1.96150243"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_1">
+      <origin xyz="-0.00255163739 -0.00619509053 -0.02875" rpy="-3.79208282e-10 -1.27769692e-10 -1.96150243"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_2">
+      <origin xyz="0.00619509052 -0.00255163738 -0.02875" rpy="-1.27769814e-10 3.79208159e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_2">
+      <origin xyz="0.00619509052 -0.00255163738 -0.02875" rpy="-1.27769814e-10 3.79208159e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_3">
+      <origin xyz="0.00255163736 0.00619509053 -0.02875" rpy="3.79208037e-10 1.27769814e-10 1.18009023"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_3">
+      <origin xyz="0.00255163736 0.00619509053 -0.02875" rpy="3.79208037e-10 1.27769814e-10 1.18009023"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_4">
+      <origin xyz="-0.00619509054 0.00255163738 -0.0287998869" rpy="1.27769876e-10 -3.79208159e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_4">
+      <origin xyz="-0.00619509054 0.00255163738 -0.0287998869" rpy="1.27769876e-10 -3.79208159e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_1">
+      <origin xyz="-0.00255163739 -0.00619509053 -0.02875" rpy="-3.79207792e-10 -1.27769692e-10 -1.96150243"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_1">
+      <origin xyz="-0.00255163739 -0.00619509053 -0.02875" rpy="-3.79207792e-10 -1.27769692e-10 -1.96150243"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_2">
+      <origin xyz="0.00619509052 -0.00255163738 -0.02875" rpy="-1.27769814e-10 3.79208159e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_2">
+      <origin xyz="0.00619509052 -0.00255163738 -0.02875" rpy="-1.27769814e-10 3.79208159e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_3">
+      <origin xyz="0.00255163736 0.00619509053 -0.02875" rpy="3.79207669e-10 1.27769814e-10 1.18009023"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_3">
+      <origin xyz="0.00255163736 0.00619509053 -0.02875" rpy="3.79207669e-10 1.27769814e-10 1.18009023"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_4">
+      <origin xyz="-0.00619509054 0.00255163738 -0.0287998869" rpy="1.27769876e-10 -3.79208159e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_4">
+      <origin xyz="-0.00619509054 0.00255163738 -0.0287998869" rpy="1.27769876e-10 -3.79208159e-10 2.75088655"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_hub_stick_1">
+      <origin xyz="-0.0039146242 0.0167533793 -0.04635" rpy="-1.57079633 0.494477407 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_hub_stick.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_hub_stick_1">
+      <origin xyz="-0.0039146242 0.0167533793 -0.04635" rpy="-1.57079633 0.494477407 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_hub_stick.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_1__EE3_BLS3335_Servo_1">
+      <origin xyz="0 0 0" rpy="3.14159265 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_1__EE3_BLS3335_Servo_1">
+      <origin xyz="0 0 0" rpy="3.14159265 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_1__servo_horn_1">
+      <origin xyz="-3.39397499e-12 0 -0.0085" rpy="1.57079633 -1.67683981e-10 -2.0689073"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_1__servo_horn_1">
+      <origin xyz="-3.39397499e-12 0 -0.0085" rpy="1.57079633 -1.67683981e-10 -2.0689073"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_2__EE3_BLS3335_Servo_1">
+      <origin xyz="-0.0054379898 0.0130548178 -0.04635" rpy="-1.57079633 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_2__EE3_BLS3335_Servo_1">
+      <origin xyz="-0.0054379898 0.0130548178 -0.04635" rpy="-1.57079633 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_2__servo_horn_1">
+      <origin xyz="-0.00220083791 0.020914261 -0.04635" rpy="3.14159265 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_2__servo_horn_1">
+      <origin xyz="-0.00220083791 0.020914261 -0.04635" rpy="3.14159265 3.7920822e-10 -0.390706101"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="SlipRing_1_rotor">
+    <inertial>
+      <origin xyz="2.42132318e-05 -7.79734793e-05 0.00185696051" rpy="0 0 0"/>
+      <mass value="0.115269516"/>
+      <inertia ixx="6.48289444e-05" ixy="2.78944815e-08" ixz="-6.64390551e-07" iyy="6.47477811e-05" iyz="2.13952557e-06" izz="1.38842089e-05"/>
+    </inertial>
+    <visual name="PinBase_1">
+      <origin xyz="-0.000469120194 0.00151069964 -0.0359777413" rpy="0.0439345682 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="PinBase_1">
+      <origin xyz="-0.000469120194 0.00151069964 -0.0359777413" rpy="0.0439345682 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="Pin_1">
+      <origin xyz="0 0 0" rpy="-3.09765809 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/Pin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="Pin_1">
+      <origin xyz="0 0 0" rpy="-3.09765809 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/Pin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="PinBase_2">
+      <origin xyz="0.000407081043 -0.00131091604 0.031219838" rpy="0.0439345682 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="PinBase_2">
+      <origin xyz="0.000407081043 -0.00131091604 0.031219838" rpy="0.0439345682 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/PinBase.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="slipRingRotator_1">
+      <origin xyz="0.000244216059 -0.000786444749 0.0187294052" rpy="-0.0439345682 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/slipRingRotator.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="slipRingRotator_1">
+      <origin xyz="0.000244216059 -0.000786444749 0.0187294052" rpy="-0.0439345682 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/slipRingRotator.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <link name="EndEffectorAssembly_v3_1">
+    <inertial>
+      <origin xyz="0.000243713444 -0.00209470265 0.00245494955" rpy="0 0 0"/>
+      <mass value="0.911573759"/>
+      <inertia ixx="0.00132104105" ixy="1.94305913e-05" ixz="3.19183698e-05" iyy="0.00126966645" iyz="-2.02121021e-05" izz="0.000755327554"/>
+    </inertial>
+    <visual name="CamRotor_v1_1">
+      <origin xyz="0.00013677923 -0.000440467788 0.0104898656" rpy="1.61454854 -0.00405383498 0.393422459"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CamRotor_v1.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="CamRotor_v1_1">
+      <origin xyz="0.00013677923 -0.000440467788 0.0104898656" rpy="1.61454854 -0.00405383498 0.393422459"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/CamRotor_v1.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_ClawJawA_1">
+      <origin xyz="0.00352396927 -0.00799851229 0.0353445992" rpy="3.14086152 -0.450542733 -1.28435721"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawA.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_ClawJawA_1">
+      <origin xyz="0.00352396927 -0.00799851229 0.0353445992" rpy="3.14086152 -0.450542733 -1.28435721"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawA.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_ClawJawB_1">
+      <origin xyz="-0.000483520328 0.00562492106 0.0359688993" rpy="3.14082602 0.538411845 -1.2850687"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawB.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_ClawJawB_1">
+      <origin xyz="-0.000483520328 0.00562492106 0.0359688993" rpy="3.14082602 0.538411845 -1.2850687"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_ClawJawB.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_FrontCover_1">
+      <origin xyz="-0.0504695069 -0.0161685731 0.0288570376" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_FrontCover.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_FrontCover_1">
+      <origin xyz="-0.0504695069 -0.0161685731 0.0288570376" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_FrontCover.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_LowerBody_1">
+      <origin xyz="0.000375817219 -0.00121023768 0.0288221544" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LowerBody.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_LowerBody_1">
+      <origin xyz="0.000375817219 -0.00121023768 0.0288221544" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LowerBody.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_PinPlate_1">
+      <origin xyz="0.000375817219 -0.00121023768 0.0288221544" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PinPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_PinPlate_1">
+      <origin xyz="0.000375817219 -0.00121023768 0.0288221544" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PinPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_TopPlate_1">
+      <origin xyz="0.000364093285 -0.0011724833 0.0279230231" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_TopPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_TopPlate_1">
+      <origin xyz="0.000364093285 -0.0011724833 0.0279230231" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_TopPlate.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="EE3_UpperHousing_1">
+      <origin xyz="0.000364093285 -0.0011724833 0.0279230231" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_UpperHousing.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="EE3_UpperHousing_1">
+      <origin xyz="0.000364093285 -0.0011724833 0.0279230231" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_UpperHousing.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_1">
+      <origin xyz="-0.0173228808 0.0126358855 0.0723651403" rpy="1.57152746 0.450542733 1.85723544"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_1">
+      <origin xyz="-0.0173228808 0.0126358855 0.0723651403" rpy="1.57152746 0.450542733 1.85723544"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_2">
+      <origin xyz="-0.0382366179 0.00648321171 0.0723794885" rpy="1.57152746 0.450542733 1.85723544"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_2">
+      <origin xyz="-0.0382366179 0.00648321171 0.0723794885" rpy="1.57152746 0.450542733 1.85723544"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_3">
+      <origin xyz="-0.0153497319 -0.028798336 0.0705995956" rpy="1.57002969 0.538411845 -1.2850687"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_3">
+      <origin xyz="-0.0153497319 -0.028798336 0.0705995956" rpy="1.57002969 0.538411845 -1.2850687"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="finray_finger_4">
+      <origin xyz="0.00556400516 -0.0226456622 0.0705852475" rpy="1.57002969 0.538411845 -1.2850687"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="finray_finger_4">
+      <origin xyz="0.00556400516 -0.0226456622 0.0705852475" rpy="1.57002969 0.538411845 -1.2850687"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/finray_finger.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_1">
+      <origin xyz="0.00680213101 0.000684916627 0.0287178412" rpy="-3.09765809 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_1">
+      <origin xyz="0.00680213101 0.000684916627 0.0287178412" rpy="-3.09765809 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_2">
+      <origin xyz="0.00226346383 -0.00762751281 0.0284279841" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_2">
+      <origin xyz="0.00226346383 -0.00762751281 0.0284279841" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_3">
+      <origin xyz="-0.00605310189 -0.00309700213 0.0287266607" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_3">
+      <origin xyz="-0.00605310189 -0.00309700213 0.0287266607" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_LockPin_4">
+      <origin xyz="-0.00151378486 0.00521333458 0.0290663565" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_LockPin_4">
+      <origin xyz="-0.00151378486 0.00521333458 0.0290663565" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_LockPin.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_1">
+      <origin xyz="0.00680213101 0.000684916627 0.0287178412" rpy="-3.09765809 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_1">
+      <origin xyz="0.00680213101 0.000684916627 0.0287178412" rpy="-3.09765809 0.000658172393 0.286120739"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_2">
+      <origin xyz="0.00226346383 -0.00762751281 0.0284279841" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_2">
+      <origin xyz="0.00226346383 -0.00762751281 0.0284279841" rpy="3.14093385 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_3">
+      <origin xyz="-0.00605310189 -0.00309700213 0.0287266607" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_3">
+      <origin xyz="-0.00605310189 -0.00309700213 0.0287266607" rpy="3.09765809 -0.000658172393 -2.85547191"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="pinanddowel_assembly_1__EE3_PegDowel_4">
+      <origin xyz="-0.00151378486 0.00521333458 0.0290663565" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="pinanddowel_assembly_1__EE3_PegDowel_4">
+      <origin xyz="-0.00151378486 0.00521333458 0.0290663565" rpy="-3.14093385 -0.0439345587 1.85688813"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_PegDowel.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_hub_stick_1">
+      <origin xyz="-0.015646385 0.00368867459 0.0467536824" rpy="1.5700652 -0.450542733 -1.28435721"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_hub_stick.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_hub_stick_1">
+      <origin xyz="-0.015646385 0.00368867459 0.0467536824" rpy="1.5700652 -0.450542733 -1.28435721"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_hub_stick.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_1__EE3_BLS3335_Servo_1">
+      <origin xyz="0 0 0" rpy="-0.000658808122 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_1__EE3_BLS3335_Servo_1">
+      <origin xyz="0 0 0" rpy="-0.000658808122 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_1__servo_horn_1">
+      <origin xyz="0.000110726044 -0.000356569162 0.00849179593" rpy="-1.52704411 -0.00405383498 0.393422459"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_1__servo_horn_1">
+      <origin xyz="0.000110726044 -0.000356569162 0.00849179593" rpy="-1.52704411 -0.00405383498 0.393422459"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_2__EE3_BLS3335_Servo_1">
+      <origin xyz="-0.011809002 0.00481760557 0.0467510497" rpy="1.57013752 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_2__EE3_BLS3335_Servo_1">
+      <origin xyz="-0.011809002 0.00481760557 0.0467510497" rpy="1.57013752 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/EE3_BLS3335_Servo.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+    <visual name="servo_assembly_2__servo_horn_1">
+      <origin xyz="-0.0199634408 0.00241862725 0.0467566442" rpy="-0.000658808122 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </visual>
+    <collision name="servo_assembly_2__servo_horn_1">
+      <origin xyz="-0.0199634408 0.00241862725 0.0467566442" rpy="-0.000658808122 0.0439345587 -1.28470452"/>
+      <geometry><mesh filename="package://terra_arm_description/meshes/servo_horn.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+  <joint name="fix_BracketLarge_Adapter_1" type="fixed">
+    <parent link="DM-J10010L-2EC_Motor_1"/>
+    <child link="BracketLarge_Adapter_1"/>
+    <origin xyz="0.00241048442 -0.00654233826 -0.0626142146" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_CentralBatteryMount_1" type="fixed">
+    <parent link="DM-J10010L-2EC_Motor_1"/>
+    <child link="CentralBatteryMount_1"/>
+    <origin xyz="-0.0149424345 0.0507967034 0.00232778258" rpy="0 0 0"/>
+  </joint>
+  <joint name="Revolute_44" type="continuous">
+    <parent link="DM-J10010L-2EC_Motor_1"/>
+    <child link="MiddleSpacer_1"/>
+    <origin xyz="-0.000281932727 0.000958428366 4.3920426e-05" rpy="0 0 0"/>
+    <axis xyz="-0.281932727 0.958428366 0.043920426"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="Revolute_73" type="continuous">
+    <parent link="BracketLarge_Adapter_1"/>
+    <child link="DM-J4340P-2EC_Motor_3"/>
+    <origin xyz="-0.00993380031 0.0341069381 -0.0111501741" rpy="0 0 0"/>
+    <axis xyz="0.00520904467 -0.0442476609 0.999007012"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="fix_CentralBatteryMountCover_1" type="fixed">
+    <parent link="CentralBatteryMount_1"/>
+    <child link="CentralBatteryMountCover_1"/>
+    <origin xyz="-0.0107134436 0.0364202779 0.00166897619" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_LiPo_3200mAh_batt_3" type="fixed">
+    <parent link="CentralBatteryMount_1"/>
+    <child link="LiPo_3200mAh_batt_3"/>
+    <origin xyz="0.0249470713 0.0385906629 -0.0444665586" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_LiPo_3200mAh_batt_4" type="fixed">
+    <parent link="CentralBatteryMount_1"/>
+    <child link="LiPo_3200mAh_batt_4"/>
+    <origin xyz="-0.0230239304 0.0244965852 -0.044840677" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_BracketSmall_Adapter_1" type="fixed">
+    <parent link="MiddleSpacer_1"/>
+    <child link="BracketSmall_Adapter_1"/>
+    <origin xyz="0.0158696488 -0.0537573329 0.0796150325" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_EndBlock_1" type="fixed">
+    <parent link="DM-J4340P-2EC_Motor_3"/>
+    <child link="EndBlock_1"/>
+    <origin xyz="-0.000396830412 0.00337083261 -0.0691174142" rpy="0 0 0"/>
+  </joint>
+  <joint name="Revolute_57" type="continuous">
+    <parent link="BracketSmall_Adapter_1"/>
+    <child link="DM-J4340P-2EC_Motor_1"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0.0130265934 -0.0419493132 0.999034816"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="fix_LiPo_5000mAh_Batt_2" type="fixed">
+    <parent link="EndBlock_1"/>
+    <child link="LiPo_5000mAh_Batt_2"/>
+    <origin xyz="0.0223153803 0.0328237566 -0.161824557" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_1" type="fixed">
+    <parent link="EndBlock_1"/>
+    <child link="SidePanel_1"/>
+    <origin xyz="-0.00426404328 0.0362204523 -0.0880265274" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_2" type="fixed">
+    <parent link="EndBlock_1"/>
+    <child link="SidePanel_2"/>
+    <origin xyz="0.00333095752 -0.0282944573 -0.0909236007" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_ShortSide_2" type="fixed">
+    <parent link="EndBlock_1"/>
+    <child link="SidePanel_ShortSide_2"/>
+    <origin xyz="0.0350506854 0.00814425388 -0.0894750641" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_ShortSide_3" type="fixed">
+    <parent link="EndBlock_1"/>
+    <child link="SidePanel_ShortSide_3"/>
+    <origin xyz="-0.0359837711 -0.000218258873 -0.089475064" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_EndBlock_3" type="fixed">
+    <parent link="DM-J4340P-2EC_Motor_1"/>
+    <child link="EndBlock_3"/>
+    <origin xyz="0.000901440261 -0.00290289247 0.0691332092" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_EndBlock_2" type="fixed">
+    <parent link="SidePanel_ShortSide_3"/>
+    <child link="EndBlock_2"/>
+    <origin xyz="0.0350506854 0.00814425388 -0.0894750641" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_LiPo_5000mAh_Batt_3" type="fixed">
+    <parent link="EndBlock_3"/>
+    <child link="LiPo_5000mAh_Batt_3"/>
+    <origin xyz="0.0165921462 0.024586093 0.161971563" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_3" type="fixed">
+    <parent link="EndBlock_3"/>
+    <child link="SidePanel_3"/>
+    <origin xyz="0.027788558 0.00407481034 0.08945929" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_4" type="fixed">
+    <parent link="EndBlock_3"/>
+    <child link="SidePanel_4"/>
+    <origin xyz="-0.0300240145 -0.0129332404 0.0894989531" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_BracketSmall_3" type="fixed">
+    <parent link="EndBlock_2"/>
+    <child link="BracketSmall_3"/>
+    <origin xyz="-6.61548673e-05 0.000561945294 -0.0126873891" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_EndBlock_4" type="fixed">
+    <parent link="SidePanel_3"/>
+    <child link="EndBlock_4"/>
+    <origin xyz="-0.0252896927 -0.0121218632 0.102183561" rpy="0 0 0"/>
+  </joint>
+  <joint name="Revolute_29" type="continuous">
+    <parent link="BracketSmall_3"/>
+    <child link="DM-J10010L-2EC_Motor_3"/>
+    <origin xyz="0.0266856254 0.00682015158 -0.081918575" rpy="0 0 0"/>
+    <axis xyz="0.993141649 0.11691734 -3.37417039e-10"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="fix_BracketSmall_2" type="fixed">
+    <parent link="EndBlock_4"/>
+    <child link="BracketSmall_2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_ShortSide_1" type="fixed">
+    <parent link="EndBlock_4"/>
+    <child link="SidePanel_ShortSide_1"/>
+    <origin xyz="-0.0114147707 0.038565699 -0.100594592" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SidePanel_ShortSide_4" type="fixed">
+    <parent link="EndBlock_4"/>
+    <child link="SidePanel_ShortSide_4"/>
+    <origin xyz="0.0087504676 -0.0299858899 -0.103736001" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_BracketLarge_3" type="fixed">
+    <parent link="DM-J10010L-2EC_Motor_3"/>
+    <child link="BracketLarge_3"/>
+    <origin xyz="-0.0642562647 -0.0075645519 -0.06225" rpy="0 0 0"/>
+  </joint>
+  <joint name="Revolute_22" type="continuous">
+    <parent link="BracketSmall_2"/>
+    <child link="DM-J10010L-2EC_Motor_2"/>
+    <origin xyz="0.0087649441 -0.0296049381 0.0807218273" rpy="0 0 0"/>
+    <axis xyz="0.281932727 -0.958428366 -0.043920426"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="fix_DM-J4340P-2EC_Motor_4" type="fixed">
+    <parent link="BracketLarge_3"/>
+    <child link="DM-J4340P-2EC_Motor_4"/>
+    <origin xyz="0.0347599577 0.00409210691 -0.0692" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_BracketLarge_2" type="fixed">
+    <parent link="DM-J10010L-2EC_Motor_2"/>
+    <child link="BracketLarge_2"/>
+    <origin xyz="-0.017430142 0.0593989706 0.0650315688" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_SlipRing_2_stator" type="fixed">
+    <parent link="DM-J4340P-2EC_Motor_4"/>
+    <child link="SlipRing_2_stator"/>
+    <origin xyz="0 0 0.00175" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_DM-J4340P-2EC_Motor_2" type="fixed">
+    <parent link="BracketLarge_2"/>
+    <child link="DM-J4340P-2EC_Motor_2"/>
+    <origin xyz="0.0107690856 -0.0364478874 0.0675959943" rpy="0 0 0"/>
+  </joint>
+  <joint name="SlipRing_2_spin" type="continuous">
+    <parent link="SlipRing_2_stator"/>
+    <child link="SlipRing_2_rotor"/>
+    <origin xyz="-1.50781909e-11 0 -0.0377625" rpy="0 0 0"/>
+    <axis xyz="3.99291206e-10 -2.62761189e-11 1"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="fix_SlipRing_1_stator" type="fixed">
+    <parent link="DM-J4340P-2EC_Motor_2"/>
+    <child link="SlipRing_1_stator"/>
+    <origin xyz="-0.00011057256 0.000371805282 -0.00173463688" rpy="0 0 0"/>
+  </joint>
+  <joint name="fix_EndEffectorAssembly_v3_2" type="fixed">
+    <parent link="SlipRing_2_rotor"/>
+    <child link="EndEffectorAssembly_v3_2"/>
+    <origin xyz="-3.25072454e-11 2.13937895e-12 -0.0814125" rpy="0 0 0"/>
+  </joint>
+  <joint name="SlipRing_1_spin" type="continuous">
+    <parent link="SlipRing_1_stator"/>
+    <child link="SlipRing_1_rotor"/>
+    <origin xyz="0.000491916732 -0.00158411094 0.0377260522" rpy="0 0 0"/>
+    <axis xyz="-0.0130265934 0.0419493132 -0.999034816"/>
+    <limit effort="100" velocity="3.14"/>  <!-- PLACEHOLDER -->
+  </joint>
+  <joint name="fix_EndEffectorAssembly_v3_1" type="fixed">
+    <parent link="SlipRing_1_rotor"/>
+    <child link="EndEffectorAssembly_v3_1"/>
+    <origin xyz="0.00106052753 -0.00341519846 0.0813339219" rpy="0 0 0"/>
+  </joint>
+</robot>
