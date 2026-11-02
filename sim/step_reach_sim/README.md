@@ -34,6 +34,7 @@ Video rendering needs `ffmpeg`. On a headless Linux box MuJoCo renders with OSMe
 | `construct.py` | Concept: walk a floor-dock grid, carry dock-fitted blocks, stack a tower | `videos/construction/construction_concept.mp4` |
 | `wall.py` | Concept: build a wall section by section along a dock row | `videos/construction/wall_concept.mp4` |
 | `glade_curious.py` | Mood clip for the Glade set: leaf, cairn of prop stones, tree (checkpoints each move) | `videos/construction/glade_curious.mp4` |
+| `dimensions.py` | Dimensioned side view of the arm laid out straight: module lengths, overall length, bend spacing | `videos/showcase/11_dimensions.png` |
 
 Run from this folder, in this order for the plots: `sweep.py EndEffectorAssembly_v3_2`,
 `sweep.py EndEffectorAssembly_v3_1`, `plot.py ...`, `final.py`.
