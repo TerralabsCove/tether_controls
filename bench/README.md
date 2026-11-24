@@ -29,7 +29,8 @@ only needed for flashing, diagnostics, or the temporary DM-USB-CAN bridge.
 |---|---|---|
 | `boards/esp32-s3/` | S3 wiring and temporary-bridge notes | S3 |
 | `boards/xiao-esp32-c6/` | Final C6 wiring, MAC utility, CAN smoke test | C6 |
-| `boards/xiao-esp32-c5/sts3215_led_test/` | STS3215 bus servos straight off one GPIO, plus WS2812B ring test | C5 |
+| `boards/xiao-esp32-c5/sts3215_led_test/` | STS3215 bus servos straight off one GPIO, docking, endurance, WS2812B ring | C5 |
+| `boards/arduino-nano/sts3215_led_test/` | Same tests on an Arduino Nano, servo bus bit-banged on D2 | Nano |
 | `wireless_serial_node/` | Temporary node 1 when laptop owns DM-USB-CAN | S3 bench only |
 | `pc_bridge/` | Scan/inspect/USB-CAN bridge | laptop |
 | `wireless_client/` | Wireless operator console | laptop |

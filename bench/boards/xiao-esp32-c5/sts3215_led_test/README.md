@@ -1,24 +1,37 @@
 # STS3215 + LED ring bench test (XIAO ESP32-C5)
 
-A bench sketch, not deployment firmware. It drives FEETECH STS3215 12 V serial bus servos
-straight from one XIAO ESP32-C5 GPIO, with no adapter board, and tests a WS2812B ring.
+A bench sketch, not deployment firmware. It drives FEETECH STS3215 12 V serial bus servos straight from one
+XIAO ESP32-C5 GPIO, with no adapter board, and runs a WS2812B ring. It has the same commands as the Nano version
+in `../../arduino-nano/sts3215_led_test/`.
 
-Results from 2026-11-24 are summarized in the tether_context note
-`notes/2026-11-24-john-sts3215-c5-bench.md`.
+Results are summarized in the tether_context notes `notes/2026-11-24-john-sts3215-c5-bench.md` and
+`notes/2026-11-24-john-nano-c5-docking-endurance.md`.
 
-## Wiring used on 2026-11-24
+## Wiring
 
 | Signal | XIAO pin | GPIO |
 |---|---|---|
-| Servo data (STS3215 bus, both servos daisy-chained) | D2 | 25 |
-| LED ring DIN | D1 | 0 |
-| GND (shared with the servo battery and the buck) | GND | |
+| Servo data (one wire, servos daisy-chained) | D2 | 25 |
+| LED ring DIN | D3 | 7 |
+| GND (servo pack, buck, ring) | GND | |
 
-The servos run off the 3S pack directly. The ring runs off the 5 V buck.
+Neither GPIO25 nor GPIO7 is a boot-strapping pin. The C5's strapping pins are GPIO2, 3, 26, 27 (on-board LED)
+and 28.
 
-**Power the C5 from USB or from the buck, never both.** A C5 running on the buck's 5 V while it was
-also plugged into the laptop got hot and died. To flash or test from the laptop, disconnect the buck's +
-lead from the C5's 5V pad and keep every ground connected. Unplug USB before you reconnect the buck's +.
+The servos run off the 3S pack. The ring runs off the 5 V buck.
+
+## Power: USB or buck, never both
+
+A C5 running on the buck's 5 V while it was also plugged into the laptop got hot and died (2026-11-24).
+
+- **Bench (USB):** the buck's + lead is off the C5's 5V pad. The buck may still power the ring.
+- **Untethered (buck):** unplug USB and the pack. Wire grounds first, then the buck's 5 V to the 5V pad, the
+  ring and the servo data. Plug the pack in last, so the buck's output ramps up into a wired load instead of a
+  live 5 V line being plugged into the C5.
+- **Back to USB:** unplug the pack first, then take the buck's 5 V off the C5, then plug in USB.
+
+Check before connecting: the buck reads 5.0-5.2 V, and the servo plug order is pin 1 GND, pin 2 12 V, pin 3
+signal. A swapped crimp puts 12 V on D2.
 
 ## Build and flash
 
@@ -26,34 +39,34 @@ lead from the C5's 5V pad and keep every ground connected. Unplug USB before you
 pio run -e xiao_c5 -t upload
 ```
 
-Uses the pioarduino platform (Arduino-ESP32 3.3.x) and Adafruit NeoPixel. There is also an `xiao_s3`
-env. It built and flashed, but the S3 board it ran on stopped responding, so it is untested.
+Uses the pioarduino platform (Arduino-ESP32 3.3.x) and Adafruit NeoPixel. The `xiao_s3` env builds with the same
+D2/D3 pin names but is untested.
 
 ## Commands
 
-Send over USB serial at 115200, or use `bench_cli.py`:
+Over USB serial at 115200. Use `bench_cli.py` or `endure_log.py`:
 
 ```bash
-~/.platformio/penv/bin/python bench_cli.py "scan 25" "go 2 -10 30"
+~/.platformio/penv/bin/python bench_cli.py "temp" "scan" "dock" "undock"
+~/.platformio/penv/bin/python endure_log.py --log run.log --args "300 16"
 ```
 
 | Command | What it does |
 |---|---|
-| `scan <gpio> [baud] [maxid]` | Ping IDs 0..maxid (default 30). Read only. Prints position, mode, torque, voltage, temperature, limits. |
-| `nudge <deg> [id] [tq%]` | +deg, back, -deg, back at about 13 deg/s. Max 45. |
-| `go <id> <deg> [tq%]` | One move by deg (sign = direction), then back. Max 90. |
-| `led <gpio> [n]` | Red, green, blue, chase at about 10 % brightness, then dim blue. `off` turns it off. |
-| `raw <id>` | Ping one ID (254 = broadcast) and hex-dump the wire. |
-| `line <gpio>` | Idle level with pull-down, then pull-up. Shows whether anything drives the pin. |
-| `drive <0\|1>` | 1 (default): push-pull while sending. 0: open drain only. |
+| `scan [maxid]` | Ping IDs 0..maxid. Read only. |
+| `swing <id> <deg> [tq%]`, `go <id> <deg> [tq%]`, `seq <id> <p1> [p2]` | Guarded test moves. |
+| `dock [speed] [trip]` | ID 2 out to 1660 (145.9°), then hold with torque on at a 30 % cap. Default 50 steps/s, trip 160. |
+| `undock [speed] [trip]` | ID 2 back to 1080 (94.9°), then torque off. |
+| `push <deg> [speed] [cap%] [trip]` | Careful move of ID 2 from where it is, then hold. Default 30 steps/s, 20 %, trip 100. |
+| `endure [sec] [n]` | ID 1 ±50° and ID 2 dock/undock over and over, rainbow on, one CSV line per cycle with the chip temperature. |
+| `arm <sec>`, `disarm`, `report` | One-shot endurance run at the next power-up. Stats kept in flash. |
+| `rainbow`, `rainbow <n> <sec>`, `off` | The rainbow runs by default. |
+| `temp` | Chip temperature. |
+| `ledpin <gpio>`, `pinhigh <gpio>` | Ring diagnostics: move the ring data pin, or hold a pin at 3.3 V for a multimeter. Both refuse the bus pin and the strapping pins. |
+| `raw <id>`, `line`, `drive <0\|1>` | Bus debugging. |
 
-Every `nudge` and `go`:
-
-- caps torque (register 48, RAM) at `tq%`, default 30 %, and restores the old value afterwards;
-- holds the current position before enabling torque, so the servo does not jump to an old goal;
-- stops and goes back to the start if the load reaches 80 % of the cap, or if the joint stops
-  moving for 0.4 s;
-- turns torque back off at the end if it was off at the start.
+Every move caps torque (register 48, RAM) and stops and holds where it is if the load reaches the trip or the
+joint stops moving for 0.4 s.
 
 ## How the one-wire bus is driven
 
@@ -72,3 +85,9 @@ both in spec. Its reference circuit pulls DATA up with 10 kΩ to the MCU supply 
 The same sheet allows 38400 bit/s to 1 Mbit/s (default 1 Mbit/s). It rates the servo at 12 V (4-14 V),
 2.7 A at stall. The servo cuts output by itself after 2 s over 80 % of stall load or over 2 A; the next
 position command clears that. The guard in this sketch trips well before.
+
+## Open
+
+The ring stayed dark on D3 with the second loom on 2026-11-24, although it had 5 V. The ring's data line was
+being checked with `pinhigh 7`. A 5 V ring may not see the C5's 3.3 V data as high (WS2812B wants about 0.7 ×
+5 V = 3.5 V). It did light from GPIO0 on the first loom.
