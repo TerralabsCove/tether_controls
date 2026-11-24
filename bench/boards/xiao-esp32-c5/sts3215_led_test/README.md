@@ -64,5 +64,11 @@ With open drain only, the servo never answered at any ID or baud rate. Our own b
 Pushing the line high fixed it at once. The likely cause is a weak pull-up in the servo giving slow
 rising edges at 1 Mbit/s. That is assumed, not measured with a scope.
 
-The servo's data line idled at about 3.07 V against the servo's own GND, so 3.3 V logic is fine. The
-FEETECH spec sheet for the 7.4 V STS3215 gives high 2-5 V and low 0-0.45 V. No 12 V sheet was found.
+The servo's data line idled at about 3.07 V against the servo's own GND. FEETECH's spec sheet for the
+12 V model (ST-3215-C018, edition A/0) gives signal high 2-5 V and low 0-0.45 V, so 3.3 V and 5 V boards are
+both in spec. Its reference circuit pulls DATA up with 10 kΩ to the MCU supply and drives it through
+74LVC1G126 / 74LVC1G125 buffers, which fits the slow-edge explanation above.
+
+The same sheet allows 38400 bit/s to 1 Mbit/s (default 1 Mbit/s). It rates the servo at 12 V (4-14 V),
+2.7 A at stall. The servo cuts output by itself after 2 s over 80 % of stall load or over 2 A; the next
+position command clears that. The guard in this sketch trips well before.
