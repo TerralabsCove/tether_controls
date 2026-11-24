@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Send commands to the sts3215_led_test firmware and print the replies.
+"""Send commands to the sts3215_led_test firmware (Nano or XIAO) at 115200 and print its replies.
 
-    python bench_cli.py "scan 25" "go 2 -10 30" "led 0"
-    python bench_cli.py --port /dev/cu.usbmodem101 "scan 25 1000000 253"
+    python bench_cli.py "scan" "rainbow 16 10" "swing 1 50"
 
+Only printable text is kept.
+Opening the port resets the Nano; the script waits for its "ready" line.
 Needs pyserial (PlatformIO's Python has it: ~/.platformio/penv/bin/python).
 """
 import argparse
@@ -14,26 +15,40 @@ import time
 import serial
 
 
+def text(b):
+    return "".join(chr(c) for c in b if c == 10 or 32 <= c < 127)
+
+
+def read_until_prompt(s, timeout):
+    end, out = time.time() + timeout, b""
+    while time.time() < end:
+        out += s.read(4096)
+        if text(out).rstrip().endswith(">"):
+            break
+    return text(out)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", help="serial port (default: first /dev/cu.usbmodem*)")
-    ap.add_argument("--timeout", type=float, default=60, help="seconds to wait per command")
+    ap.add_argument("--port", help="serial port (default: first /dev/cu.usbmodem* or /dev/cu.usbserial*)")
+    ap.add_argument("--timeout", type=float, default=90, help="seconds to wait per command")
     ap.add_argument("cmds", nargs="+")
     args = ap.parse_args()
 
-    port = args.port or next(iter(sorted(glob.glob("/dev/cu.usbmodem*"))), None)
+    port = args.port or next(iter(sorted(glob.glob("/dev/cu.usbmodem*") + glob.glob("/dev/cu.usbserial*"))), None)
     if not port:
-        sys.exit("no /dev/cu.usbmodem* port. Is the C5 on USB?")
-    s = serial.Serial(port, 115200, timeout=0.3)
+        sys.exit("no /dev/cu.usbmodem* or /dev/cu.usbserial* port. Is the board on USB?")
+    s = serial.Serial(port, 115200, timeout=0.2)
+    print(read_until_prompt(s, 5).strip(), flush=True)
     for cmd in args.cmds:
         print(f">>> {cmd}", flush=True)
+        s.reset_input_buffer()
+        s.write(b"\n")  # wake byte: the board pauses its LED frames so the command is not dropped
+        time.sleep(0.05)
         s.write((cmd + "\n").encode())
-        end, out = time.time() + args.timeout, b""
-        while time.time() < end:
-            out += s.read(4096)
-            if out.rstrip().endswith(b">"):  # firmware prints "> " when a command is done
-                break
-        print(out.decode(errors="replace").rstrip().rstrip(">").rstrip(), flush=True)
+        out = read_until_prompt(s, args.timeout)
+        lines = [l for l in out.splitlines() if l.strip() and l.strip() != cmd]
+        print("\n".join(lines).rstrip().rstrip(">").rstrip(), flush=True)
     s.close()
 
 
