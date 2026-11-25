@@ -806,6 +806,42 @@ void loop() {
     hex[k] = 0;
     SAY("raw ping id %d: result %d, %d bytes (echo first):%s", a, r, lastRawN, hex);
   }
+  else if ((!strcmp(cmd, "ofs") || !strcmp(cmd, "setid")) && a1) {
+    // EEPROM writes (unlock reg 55, write, lock). Torque must be off.
+    // ofs <id>          read the position offset (reg 31, sign-magnitude, bit 11 = sign) and position
+    // ofs <id> <steps>  write it, -2047..2047 (which way the sign shifts the reading is not yet checked)
+    // setid <id> <new>  change the bus id; refused if <new> already answers
+    int tq = -1, v = -1, pos = -1;
+    rd8(a, R_TORQUE, &tq);
+    if (!strcmp(cmd, "ofs") && !a2) {
+      rd16(a, 31, &v); rd16(a, R_POS, &pos);
+      int o = (v & 0x800) ? -(v & 0x7FF) : (v & 0x7FF);
+      SAY("id %d: offset %d (raw reg 0x%03X), position %d", a, v < 0 ? 0 : o, v, pos);
+    } else if (tq != 0) {
+      SAY("refused: id %d torque reads %d (must be 0, and the servo must answer)", a, tq);
+    } else if (!strcmp(cmd, "ofs")) {
+      if (b < -2047 || b > 2047) { SAY("refused: offset %d outside -2047..2047", b); }
+      else {
+        int enc = b < 0 ? (0x800 | -b) : b;
+        bool ok = wr8(a, 55, 0); wait(5);
+        ok = wr16(a, 31, enc) && ok; wait(5);
+        ok = wr8(a, 55, 1) && ok; wait(20);
+        rd16(a, 31, &v); rd16(a, R_POS, &pos);
+        SAY("id %d: offset written %d (0x%03X), %s; reg now 0x%03X, position %d", a, b, enc, ok ? "acked" : "NO ACK", v, pos);
+      }
+    } else {
+      uint8_t dummy[1];
+      if (b < 0 || b > 253) SAY("refused: id %d outside 0..253", b);
+      else if (txrx((uint8_t)b, 0x01, nullptr, 0, dummy, 0) >= 0) SAY("refused: id %d already answers", b);
+      else {
+        bool ok = wr8(a, 55, 0); wait(5);
+        ok = wr8(a, 5, (uint8_t)b) && ok; wait(20);
+        ok = wr8(b, 55, 1) && ok; wait(20);  // the lock lives at the new id now
+        bool there = txrx((uint8_t)b, 0x01, nullptr, 0, dummy, 0) >= 0;
+        SAY("setid %d -> %d: %s, new id %s", a, b, ok ? "acked" : "NO ACK", there ? "answers" : "DOES NOT answer");
+      }
+    }
+  }
   else if (!strcmp(cmd, "line")) {
     // Idle level with the weak pull-down, then pull-up. A powered servo's pull-up wins over the pull-down.
     gpio_set_pull_mode((gpio_num_t)BUS_PIN, GPIO_PULLDOWN_ONLY); delay(20);

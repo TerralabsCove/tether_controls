@@ -74,6 +74,8 @@ Over USB serial at 115200. Use `bench_cli.py` or `endure_log.py`:
 | `temp` | Chip temperature. |
 | `ledpin <gpio>`, `pinhigh <gpio>` | Ring diagnostics: move the ring data pin, or hold a pin at 3.3 V for a multimeter. Both refuse the bus pin and the strapping pins. |
 | `raw <id>`, `line`, `drive <0\|1>` | Bus debugging. |
+| `ofs <id> [steps]` | Read, or write to EEPROM, the position offset (reg 31, sign-magnitude; which way the sign shifts the reading is not yet checked). Torque must be off. |
+| `setid <id> <new>` | Change a servo's bus id (EEPROM). Torque must be off; refused if `<new>` already answers. Only one servo with `<id>` on the bus. |
 
 Every move caps torque (register 48, RAM) and stops and holds where it is if the load reaches the trip or the
 joint stops moving for 0.4 s.
@@ -97,6 +99,16 @@ The same sheet allows 38400 bit/s to 1 Mbit/s (default 1 Mbit/s). It rates the s
 position command clears that. The guard in this sketch trips well before.
 
 ## Open
+
+EE1 (C5 #1) bus, 2026-11-24:
+- **Servo IDs:** the second servo came with the factory ID 1 and was set to 2 with `setid 1 2`. That was checked
+  with a clean ping at ID 2 while ID 1 went silent. It has not yet been checked after a power cycle.
+- **Weak data line:** replies were mostly corrupt, roughly 1 ping in 6 clean, every error a 1 read as 0 and most at
+  the start of the reply. Fixing the ground did not help. With `drive 0` (open drain) even our own echo was corrupt.
+  The line's high level is weak or slow on this loom. Try an external 1-2.2 kΩ pull-up from D2 to 3V3.
+- **Servo 1 sits at 4092 steps**, at the 4095 -> 0 wrap. That is outside the EE firmware's 2250-3450 limit for ID 1,
+  so a ROS goal near it gets clamped about 56° away. Keep EE1 out of ROS commands until `ofs 1 <n>` makes it read
+  about 2848 at rest, like EE2's. One clean read showed the offset already at 85.
 
 The ring stayed dark on D3 with the second loom on 2026-11-24, although it had 5 V. The ring's data line was
 being checked with `pinhigh 7`. A 5 V ring may not see the C5's 3.3 V data as high (WS2812B wants about 0.7 ×
