@@ -12,9 +12,10 @@ Results are summarized in the tether_context notes `notes/2026-11-24-john-sts321
 | Label | Base / station MAC  | SoftAP MAC          | Location                              |
 |-------|---------------------|---------------------|---------------------------------------|
 | C5 #1 | `38:44:BE:1F:F9:DC` | `38:44:BE:1F:F9:DD` | End effector, the one closest to 11   |
+| C5 #2 | `10:BD:A3:CD:D1:B8` | `10:BD:A3:CD:D1:B9` | Not yet assigned                      |
 
 Read with `esptool --port <port> read-mac` on 2026-11-24. The SoftAP MAC is the base MAC + 1, the ESP32 default.
-Station initializer: `{0x38, 0x44, 0xBE, 0x1F, 0xF9, 0xDC}`.
+Station initializers: C5 #1 `{0x38, 0x44, 0xBE, 0x1F, 0xF9, 0xDC}`, C5 #2 `{0x10, 0xBD, 0xA3, 0xCD, 0xD1, 0xB8}`.
 
 ## Wiring
 
