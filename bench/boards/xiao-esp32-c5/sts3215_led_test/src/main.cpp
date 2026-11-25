@@ -200,8 +200,18 @@ static uint8_t eeCrc8(const uint8_t *d, size_t n) {  // tethersmall ts::crc8: po
 #ifndef EE_CMD_TIMEOUT_MS
 #define EE_CMD_TIMEOUT_MS 500
 #endif
-static const int EE_LIM[2][2] = {{2250, 3450},   // ID 1: about +-52 deg around 2848
-                                 {1080, 1660}};  // ID 2: undocked 94.9 deg .. docked 145.9 deg (stop near 91)
+// Goal limits per servo, steps. Defaults are EE2's: ID 1 about +-52 deg around 2848; ID 2 undocked 94.9 deg ..
+// docked 145.9 deg (its stop is near 91). A build can override them (env xiao_c5_ee1 does: its servos rest at the
+// 4095 -> 0 wrap, no offsets set yet). LO < 0 disables that servo: never torqued or moved by ROS.
+#ifndef EE_LIM1_LO
+#define EE_LIM1_LO 2250
+#define EE_LIM1_HI 3450
+#endif
+#ifndef EE_LIM2_LO
+#define EE_LIM2_LO 1080
+#define EE_LIM2_HI 1660
+#endif
+static const int EE_LIM[2][2] = {{EE_LIM1_LO, EE_LIM1_HI}, {EE_LIM2_LO, EE_LIM2_HI}};
 static const int EE_MAX_SPEED = 400;  // steps/s
 static const int EE_MAX_CAP = 40;     // % of max torque
 struct EeCmdIn { uint8_t flags; uint16_t seq; uint16_t goal[2]; uint16_t speed; uint8_t cap; };
@@ -214,6 +224,7 @@ static bool g_eeHaveSeq = false;
 static bool g_eeActive = false;       // torque is on because of ROS commands
 static uint8_t g_eeTrip = 0;          // bit k: servo k+1 tripped, holding
 static uint8_t g_eeClamped = 0;       // bit k: servo k+1's last goal was clamped
+static uint8_t g_eeOn = 0;            // bit k: servo k+1 torqued by ROS (was inside its limits when it started)
 static int g_eeGoal[2] = {-1, -1}, g_eeSpeed[2] = {-1, -1}, g_eeCapSet = -1;
 static uint32_t g_eeApplied = 0, g_eeTrips = 0, g_eeTimeouts = 0;
 
@@ -232,12 +243,17 @@ static void eeOnRecv(const esp_now_recv_info_t *, const uint8_t *d, int n) {
 }
 static void eeRelax() {
   wr8(1, R_TORQUE, 0); wr8(2, R_TORQUE, 0);
-  g_eeActive = false; g_eeTrip = 0;
+  g_eeActive = false; g_eeTrip = 0; g_eeOn = 0;
   g_eeGoal[0] = g_eeGoal[1] = g_eeSpeed[0] = g_eeSpeed[1] = g_eeCapSet = -1;
 }
-static void eeHoldServo(int k) {  // goal = where it is now
+// goal = where it is now. Only inside the servo's limits: a reading outside them (a disabled servo, a wrapped or
+// misread position) must never become a goal. Returns true if the hold goal was written.
+static bool eeHoldServo(int k) {
   int pos;
-  if (rd16(k + 1, R_POS, &pos)) { wrGoal(k + 1, pos, 100, 0); g_eeGoal[k] = pos; }
+  if (EE_LIM[k][0] < 0 || !rd16(k + 1, R_POS, &pos) || pos < EE_LIM[k][0] || pos > EE_LIM[k][1]) return false;
+  if (!wrGoal(k + 1, pos, 100, 0)) return false;
+  g_eeGoal[k] = pos;
+  return true;
 }
 static void eeApply() {
   if (!g_eeInNew) {
@@ -256,15 +272,15 @@ static void eeApply() {
   int cap = c.cap > EE_MAX_CAP ? EE_MAX_CAP : (c.cap < 5 ? 5 : c.cap);
   if (cap != g_eeCapSet) { wr16(1, R_TQ_LIMIT, cap * 10); wr16(2, R_TQ_LIMIT, cap * 10); g_eeCapSet = cap; }
   if (!g_eeActive) {
-    // first command: hold both where they are, then torque on
-    eeHoldServo(0); eeHoldServo(1);
-    wr8(1, R_TORQUE, 1); wr8(2, R_TORQUE, 1);
+    // first command: hold each servo where it is, then torque on; a servo outside its limits stays off
+    for (int k = 0; k < 2; k++)
+      if (eeHoldServo(k) && wr8(k + 1, R_TORQUE, 1)) g_eeOn |= 1 << k;
     g_eeActive = true;
   }
   if (!(c.flags & 0x01)) return;  // hold
   int spd = c.speed > EE_MAX_SPEED ? EE_MAX_SPEED : (c.speed < 10 ? 10 : c.speed);
   for (int k = 0; k < 2; k++) {
-    if (g_eeTrip & (1 << k)) continue;
+    if ((g_eeTrip & (1 << k)) || !(g_eeOn & (1 << k))) continue;
     int g = c.goal[k];
     int lo = EE_LIM[k][0], hi = EE_LIM[k][1];
     if (g < lo || g > hi) { g = g < lo ? lo : hi; g_eeClamped |= 1 << k; } else g_eeClamped &= ~(1 << k);
@@ -872,7 +888,9 @@ void loop() {
     }
   }
 #ifdef EE_ID
-  else if (!strcmp(cmd, "ee")) SAY("ee %d: %s, seq %u, sent %lu, send errors %lu, no-ack %lu (broadcast: always 0 or all)", EE_ID,
+  else if (!strcmp(cmd, "ee")) SAY("ee %d: limits id1 %d..%d id2 %d..%d, torqued 0x%x", EE_ID, EE_LIM1_LO, EE_LIM1_HI,
+                                   EE_LIM2_LO, EE_LIM2_HI, g_eeOn),
+                               SAY("ee %d: %s, seq %u, sent %lu, send errors %lu, no-ack %lu (broadcast: always 0 or all)", EE_ID,
                                    g_eeUp ? "up" : "DOWN", g_eeSeq, g_eeSent, g_eeFail, g_eeTxFail),
        SAY("  cmds: rx %lu, applied %lu (seq %u), stale %lu, %s, trips %lu (now 0x%x), timeouts %lu", g_eeRx,
            g_eeApplied, g_eeCmdSeq, g_eeRxStale, g_eeActive ? "ACTIVE" : "idle", g_eeTrips, g_eeTrip, g_eeTimeouts);
