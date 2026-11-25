@@ -165,6 +165,99 @@ static bool wrGoal(uint8_t id, int goal, int speed, int acc) {
 }
 static int loadSigned(int raw) { return (raw & 0x400) ? -(raw & 0x3FF) : (raw & 0x3FF); }
 
+// ---------------------------------------------------------------- end-effector telemetry (EE_ID builds only)
+// Envs xiao_c5_ee1 / xiao_c5_ee2: every 1000/EE_HZ ms, read servos 1 and 2 and broadcast one T_EE_STATE frame
+// (tethersmall firmware/include/protocol.h) on ESP-NOW 5 GHz channel 36, 6 Mbit/s 802.11a, the same radio settings
+// as tethersmall's *_c5_5g builds. The tethersmall gateway forwards it to USB and tether_ros publishes it.
+// Read only: it never moves a servo. The bench commands above all still work over USB.
+#ifdef EE_ID
+#include <WiFi.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+#ifndef EE_HZ
+#define EE_HZ 50
+#endif
+#ifndef EE_CHANNEL
+#define EE_CHANNEL 36
+#endif
+static const uint8_t EE_BCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+static bool g_eeUp = false;
+static uint16_t g_eeSeq = 0;
+static uint32_t g_eeLast = 0, g_eeSent = 0, g_eeFail = 0;
+static volatile uint32_t g_eeTxFail = 0;
+
+static uint8_t eeCrc8(const uint8_t *d, size_t n) {  // tethersmall ts::crc8: poly 0x07, init 0
+  uint8_t c = 0;
+  for (size_t i = 0; i < n; i++) {
+    c ^= d[i];
+    for (int b = 0; b < 8; b++) c = (c & 0x80) ? (uint8_t)((c << 1) ^ 0x07) : (uint8_t)(c << 1);
+  }
+  return c;
+}
+static void eeOnSent(const wifi_tx_info_t *, esp_now_send_status_t st) {
+  if (st != ESP_NOW_SEND_SUCCESS) g_eeTxFail = g_eeTxFail + 1;
+}
+static void eeSetup() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY);
+  esp_wifi_set_ps(WIFI_PS_NONE);
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(EE_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
+  if (esp_now_init() != ESP_OK) { SAY("ee: esp_now_init failed, no telemetry"); return; }
+  esp_now_register_send_cb(eeOnSent);
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, EE_BCAST, 6);
+  peer.channel = EE_CHANNEL;
+  peer.ifidx = WIFI_IF_STA;
+  esp_now_add_peer(&peer);
+  esp_now_rate_config_t rate = {};
+  rate.phymode = WIFI_PHY_MODE_11A;
+  rate.rate = WIFI_PHY_RATE_6M;
+  esp_now_set_peer_rate_config(EE_BCAST, &rate);
+  uint8_t ch = 0; wifi_second_chan_t ch2;
+  esp_wifi_get_channel(&ch, &ch2);
+  g_eeUp = true;
+  SAY("ee: end effector %d, mac %s, ESP-NOW 5 GHz channel %u (wanted %d), servo telemetry at %d Hz", EE_ID,
+      WiFi.macAddress().c_str(), ch, EE_CHANNEL, EE_HZ);
+}
+// Reads one servo into a 10-byte EeServo record: id, flags, pos u16, load i16, current u16, volt, temp.
+static void eeReadServo(uint8_t id, uint8_t *r) {
+  memset(r, 0, 10);
+  r[0] = id;
+  uint8_t b[8], c[2], tq[1];
+  if (!rd(id, R_POS, 8, b)) return;  // 56-57 pos, 58-59 speed, 60-61 load, 62 volt, 63 temp
+  int16_t load = (int16_t)loadSigned(b[4] | (b[5] << 8));
+  uint16_t cur = rd(id, R_CURRENT, 2, c) ? (uint16_t)(c[0] | (c[1] << 8)) : 0;
+  bool torque = rd(id, R_TORQUE, 1, tq) && tq[0];
+  r[1] = 0x01 | (torque ? 0x02 : 0);
+  r[2] = b[0]; r[3] = b[1];
+  memcpy(r + 4, &load, 2);
+  memcpy(r + 6, &cur, 2);
+  r[8] = b[6]; r[9] = b[7];
+}
+static void eeTick() {
+  if (!g_eeUp || millis() - g_eeLast < 1000 / EE_HZ) return;
+  g_eeLast = millis();
+  uint8_t f[5 + 8 + 20];
+  uint8_t *p = f + 4;  // payload
+  uint32_t ms = millis();
+  p[0] = EE_ID; p[1] = 0;
+  memcpy(p + 2, &g_eeSeq, 2);
+  memcpy(p + 4, &ms, 4);
+  eeReadServo(1, p + 8);
+  eeReadServo(2, p + 18);
+  g_eeSeq++;
+  f[0] = 0xA5; f[1] = 0x5A; f[2] = 28; f[3] = 0x04;  // T_EE_STATE
+  f[4 + 28] = eeCrc8(f + 3, 29);
+  if (esp_now_send(EE_BCAST, f, sizeof f) == ESP_OK) g_eeSent++; else g_eeFail++;
+}
+#else
+static void eeSetup() {}
+static void eeTick() {}
+#endif
+
 // ---------------------------------------------------------------- commands
 static void cmdScan(int maxId) {
   int n = 0;
@@ -197,6 +290,7 @@ static bool g_rainbow = true;      // rainbow at idle and during moves ("off" st
 static uint32_t g_quietUntil = 0;  // no LED frames until then: a command is coming in over serial
 
 static void ringTick() {
+  eeTick();  // end-effector telemetry (EE_ID builds), also while a move or a wait() runs
   if (!(g_anim || g_rainbow) || (int32_t)(millis() - g_quietUntil) < 0 || millis() - g_lastFrame < 30) return;
   g_lastFrame = millis();
   ring.rainbow(g_hue);
@@ -550,6 +644,7 @@ void setup() {
   ring.setBrightness(24);
   ring.clear(); ring.show();
   delay(100);
+  eeSetup();
   recLoad();
   g_rec.boots++;
   if (g_rec.state == ST_RUNNING) {  // power was lost or the board reset in the middle of an auto run
@@ -651,6 +746,10 @@ void loop() {
       SAY("GPIO%d held at 3.3 V (rainbow off). Measure DIN to GND at the ring. 'rainbow' or 'ledpin' to undo", a);
     }
   }
+#ifdef EE_ID
+  else if (!strcmp(cmd, "ee")) SAY("ee %d: %s, seq %u, sent %lu, send errors %lu, no-ack %lu (broadcast: always 0 or all)", EE_ID,
+                                   g_eeUp ? "up" : "DOWN", g_eeSeq, g_eeSent, g_eeFail, g_eeTxFail);
+#endif
   else if (!strcmp(cmd, "temp")) SAY("chip temperature %.1f C, up %lu s", temperatureRead(), millis() / 1000);
   else if (!strcmp(cmd, "drive") && a1) {
     ppTx = a != 0;
