@@ -7,6 +7,15 @@ in `../../arduino-nano/sts3215_led_test/`.
 Results are summarized in the tether_context notes `notes/2026-11-24-john-sts3215-c5-bench.md` and
 `notes/2026-11-24-john-nano-c5-docking-endurance.md`.
 
+## Boards
+
+| Label | Base / station MAC  | SoftAP MAC          | Location                              |
+|-------|---------------------|---------------------|---------------------------------------|
+| C5 #1 | `38:44:BE:1F:F9:DC` | `38:44:BE:1F:F9:DD` | End effector, the one closest to 11   |
+
+Read with `esptool --port <port> read-mac` on 2026-11-24. The SoftAP MAC is the base MAC + 1, the ESP32 default.
+Station initializer: `{0x38, 0x44, 0xBE, 0x1F, 0xF9, 0xDC}`.
+
 ## Wiring
 
 | Signal | XIAO pin | GPIO |
