@@ -53,14 +53,21 @@ the ring is being updated:
 | `seq <id> <p1> [p2]` | Guarded moves to absolute positions. |
 | `dock [speed] [trip]` | ID 2 out to 1660 (145.9°), then hold with torque on at a 30 % cap. Default 50 steps/s, trip 160. |
 | `undock [speed] [trip]` | ID 2 back to 1080 (94.9°), then torque off. Same defaults. |
-| `push <deg> [speed] [cap%] [trip]` | Careful move of ID 2 from where it is, then hold. Default 30 steps/s, 20 %, trip 100. |
+| `push <deg> [speed] [cap%] [trip] [stall_ms]` | Careful move of ID 2 from where it is, then hold. Default 30 steps/s, 20 %, trip 100, stall 400 ms. Cap 5-95 %. |
+| `move <id> <deg> [speed] [cap%] [trip] [stall_ms]` | The same for any servo. Default 50 steps/s, 30 %, trip 240, stall 400 ms. Holds at no more than 30 %. |
+| `stat <id>` | One status line for the button page: `STAT id pos load current volt temp torque moving chip ok`. |
+| `relax <id>` | Torque off, cap back to 100 %. The joint goes limp where it is. |
 | `endure [sec] [n]` | ID 1 ±50° and ID 2 dock/undock over and over, rainbow on, one CSV line per cycle. |
 | `arm <sec>`, `disarm`, `report` | One-shot endurance run at the next power-up (for buck power, no PC). Stats kept in EEPROM. Ring ends green (clean) or red (fault). |
 | `rainbow`, `rainbow <n> <sec>`, `off` | The rainbow runs by default. |
 | `raw <id>`, `line` | Bus debugging. |
 
+For buttons instead of typed commands, use the button page in
+`../../xiao-esp32-c5/sts3215_led_test/ui/` with `--port /dev/cu.usbserial-*`. Its board chip reads "–" here,
+because the Nano has no temperature sensor.
+
 Every move caps torque (register 48, RAM) and stops and holds where it is if the load reaches the trip or the
-joint stops moving for 0.4 s. Endurance stops by itself at a servo temperature of 60 °C, a servo supply under
+joint stops moving for the stall window (0.4 s by default). Sending `s` stops a move part-way and holds. Endurance stops by itself at a servo temperature of 60 °C, a servo supply under
 10.5 V, a servo it cannot read, or 3 blocked moves.
 
 ## Positions

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Servo bench</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
+    --accent: #2f6fdf; --accent-ink: #ffffff; --warn: #b86e00; --bad: #c62828; --ok: #2e7d32;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --card: #1f1f1d; --ink: #ececea; --muted: #9a9a94; --line: #33332f;
+            --accent: #5b8ff0; --warn: #e0a040; --bad: #ef5350; --ok: #66bb6a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--card); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .pill { font-size: 12px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .pill.busy { color: var(--warn); border-color: var(--warn); }
+  .spacer { flex: 1; }
+  #stop { background: var(--bad); color: #fff; border: 0; font-weight: 700; font-size: 15px; padding: 10px 22px; border-radius: 8px; cursor: pointer; }
+  #stop:active { transform: translateY(1px); }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr); gap: 14px; padding: 14px 16px; max-width: 1200px; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
+  label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+  input, select { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); width: 80px; }
+  button { font: inherit; padding: 7px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.big { font-size: 16px; padding: 12px 18px; min-width: 120px; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .chip { padding: 3px 9px; font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+  .stat .k { font-size: 11px; color: var(--muted); }
+  .stat .v { font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .stat .s { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; border-radius: 4px; background: var(--line); position: relative; overflow: hidden; margin-top: 4px; }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
+  .bar > b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--bad); }
+  .warn { color: var(--warn); font-size: 12px; }
+  .note { color: var(--muted); font-size: 12px; }
+  #log { font-family: var(--mono); font-size: 12px; height: 340px; overflow: auto; white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  #log .cmd { color: var(--accent); font-weight: 600; }
+  #log .bad { color: var(--bad); font-weight: 600; }
+  #log .sys { color: var(--muted); }
+  .span2 { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Servo bench</h1>
+  <span id="conn" class="pill">connecting</span>
+  <span id="busy" class="pill">idle</span>
+  <span class="spacer"></span>
+  <button id="stop" title="Stops the move or endurance run, then turns torque off">STOP</button>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Status
+      <select id="sid" title="Servo ID"><option>2</option><option>1</option></select>
+      <label style="flex-direction:row;align-items:center;gap:4px;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="auto" checked style="width:auto"> live</label>
+    </h2>
+    <div class="stats">
+      <div class="stat"><div class="k">Position</div><div class="v" id="pdeg">–</div><div class="s" id="psteps"></div></div>
+      <div class="stat"><div class="k">Load (of 1000)</div><div class="v" id="pload">–</div><div class="bar"><i id="loadbar"></i><b id="capmark"></b></div></div>
+      <div class="stat"><div class="k">Torque</div><div class="v" id="ptq">–</div><div class="s" id="pmove"></div></div>
+      <div class="stat"><div class="k">Current</div><div class="v" id="pcur">–</div><div class="s">raw units</div></div>
+      <div class="stat"><div class="k">Servo temp</div><div class="v" id="ptemp">–</div></div>
+      <div class="stat"><div class="k">Servo supply</div><div class="v" id="pvolt">–</div></div>
+      <div class="stat"><div class="k">Board chip</div><div class="v" id="pchip">–</div></div>
+      <div class="stat"><div class="k">Updated</div><div class="v" id="pupd" style="font-size:13px">–</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Jog</h2>
+    <div class="row">
+      <label>Step (deg)<input id="step" type="number" value="5" min="1" max="180"></label>
+      <button class="chip" data-step="1">1</button><button class="chip" data-step="5">5</button>
+      <button class="chip" data-step="10">10</button><button class="chip" data-step="30">30</button>
+    </div>
+    <div class="row">
+      <label>Speed (steps/s)<input id="speed" type="number" value="50" min="20" max="300"></label>
+      <label>Torque cap %<input id="cap" type="number" value="30" min="5" max="95"></label>
+      <label>Load trip<input id="trip" type="number" value="240" min="20" max="1000"></label>
+      <label>Stall (ms)<input id="stall" type="number" value="400" min="200" max="2000"></label>
+    </div>
+    <div id="capwarn" class="warn"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="big" id="minus">− step</button>
+      <button class="big primary" id="plus">+ step</button>
+      <button class="big" id="relax">Torque off</button>
+    </div>
+    <div class="note">+ is the direction the old end effector docked in. Each move stops and holds if the load
+      reaches the trip or the joint stops moving for the stall time, then holds at no more than 30 %.</div>
+    <div class="row" style="margin-top:10px">
+      <label>Go to angle (deg)<input id="target" type="number" step="1"></label>
+      <button id="goto">Go</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Dock (ID 2)</h2>
+    <div class="row">
+      <label>Speed<input id="dspeed" type="number" value="50" min="20" max="300"></label>
+      <label>Trip<input id="dtrip" type="number" value="160" min="20" max="1000"></label>
+      <button class="primary" id="dock">Dock</button>
+      <button id="undock">Undock</button>
+    </div>
+    <div class="note">Dock goes to 145.9° and holds; undock goes to 94.9° and turns torque off. These are the old
+      end effector's positions. Check them before using dock on the new one.</div>
+  </section>
+
+  <section class="card">
+    <h2>LEDs and endurance</h2>
+    <div class="row">
+      <button id="rainbow">Rainbow</button>
+      <button id="ledoff">LEDs off</button>
+    </div>
+    <div class="row">
+      <label>Endurance (s)<input id="esec" type="number" value="300" min="10" max="3600"></label>
+      <button id="endure">Start endurance</button>
+    </div>
+    <div class="note">Endurance runs ID 1 ±50° and ID 2 dock/undock. STOP ends it.</div>
+    <div class="row" style="margin-top:8px">
+      <button id="scan">Scan</button><button id="temp">Chip temp</button><button id="report">Report</button>
+      <button id="reconnect">Reconnect</button>
+    </div>
+  </section>
+
+  <section class="card span2">
+    <h2>Log <span class="spacer"></span>
+      <input id="raw" placeholder="command, e.g. scan 10" style="width:220px;text-transform:none">
+      <button id="send" class="chip">Send</button><button id="clear" class="chip">Clear</button></h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let since = 0, busy = false, connected = false, lastPos = null, lastStat = 0, stopPending = false;
+
+function logLine(text, cls) {
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = text;
+  const box = $('log');
+  const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  box.appendChild(d);
+  while (box.childNodes.length > 1500) box.removeChild(box.firstChild);
+  if (atEnd) box.scrollTop = box.scrollHeight;
+}
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  return r.json();
+}
+
+async function send(cmd) {
+  let r = await api('/api/cmd', {cmd});
+  for (let i = 0; !r.ok && /busy with 'stat /.test(r.error || '') && i < 10; i++) {
+    await new Promise(res => setTimeout(res, 150));  // a live-status read is finishing
+    r = await api('/api/cmd', {cmd});
+  }
+  if (!r.ok && !cmd.startsWith('stat ')) logLine('not sent: ' + r.error, 'bad');
+  return r.ok;
+}
+
+function deg(steps) { return (steps * 360 / 4096).toFixed(1); }
+
+function showStat(p) {
+  // STAT id pos load cur volt_dV temp_C torque moving chip_C ok
+  if (p[0] !== $('sid').value) return;
+  if (p[9] === '0') { $('pdeg').textContent = 'no reply'; $('psteps').textContent = 'servo ' + p[0]; return; }
+  const pos = +p[1], load = +p[2];
+  lastPos = pos;
+  $('pdeg').textContent = deg(pos) + '°';
+  $('psteps').textContent = 'step ' + pos;
+  setLoad(load);
+  $('pcur').textContent = p[3];
+  $('pvolt').textContent = (+p[4] / 10).toFixed(1) + ' V';
+  $('ptemp').textContent = p[5] + ' °C';
+  $('ptq').textContent = p[6] === '1' ? 'on' : 'off';
+  $('pmove').textContent = p[7] === '1' ? 'moving' : '';
+  $('pchip').textContent = isNaN(+p[8]) ? '–' : (+p[8]).toFixed(1) + ' °C';
+  $('pupd').textContent = new Date().toLocaleTimeString();
+}
+
+function setLoad(load) {
+  $('pload').textContent = load;
+  $('loadbar').style.width = Math.min(100, Math.abs(load) / 10) + '%';
+  $('capmark').style.left = Math.min(100, +$('cap').value) + '%';
+}
+
+function handleLine(t) {
+  if (t.startsWith('STAT ')) { showStat(t.split(' ').slice(1)); return; }
+  const m = t.match(/pos (\d+) \((-?[\d.]+) deg to go\) load (-?\d+) cur (-?\d+)/);
+  if (m) { lastPos = +m[1]; $('pdeg').textContent = deg(+m[1]) + '°'; $('psteps').textContent = 'step ' + m[1]; setLoad(+m[3]); $('pcur').textContent = m[4]; }
+  const cls = t.startsWith('>>>') ? 'cmd' : /BLOCKED|STOPPED|failed|refused|TIMEOUT|error/i.test(t) ? 'bad' : t.startsWith('[') ? 'sys' : '';
+  logLine(t, cls);
+}
+
+async function poll() {
+  try {
+    const s = await api('/api/state?since=' + since);
+    connected = s.connected; busy = s.busy;
+    $('conn').textContent = s.connected ? s.port : ('not connected' + (s.err ? ': ' + s.err : ''));
+    $('conn').className = 'pill ' + (s.connected ? 'ok' : 'bad');
+    $('busy').textContent = s.busy ? 'running: ' + s.busy_cmd : 'idle';
+    $('busy').className = 'pill ' + (s.busy ? 'busy' : '');
+    for (const [seq, , text] of s.lines) { since = seq; handleLine(text); }
+    document.querySelectorAll('main button').forEach(b => { if (b.id !== 'reconnect' && b.id !== 'clear') b.disabled = busy || !connected; });
+    if (stopPending && !busy) { stopPending = false; await send('relax ' + $('sid').value); }
+    if (!busy && connected && $('auto').checked && Date.now() - lastStat > 1500) {
+      lastStat = Date.now();
+      send('stat ' + $('sid').value);
+    }
+  } catch (e) {
+    $('conn').textContent = 'UI server not reachable'; $('conn').className = 'pill bad';
+  }
+}
+setInterval(poll, 300);
+
+function capOk() {
+  const cap = +$('cap').value;
+  if (cap > 50) return confirm(`Torque cap ${cap}% is above 50%. That is up to ~${(cap * 0.3).toFixed(0)} kg·cm on the joint. Go?`);
+  return true;
+}
+function updCapWarn() {
+  const cap = +$('cap').value;
+  $('capwarn').textContent = cap > 30 ? `Cap ${cap}% is above the usual 30%. Use only to free a stiff joint.` : '';
+  $('capmark').style.left = Math.min(100, cap) + '%';
+}
+$('cap').addEventListener('input', updCapWarn);
+updCapWarn();
+
+function moveBy(d) {
+  if (!capOk()) return;
+  send(`move ${$('sid').value} ${d} ${$('speed').value} ${$('cap').value} ${$('trip').value} ${$('stall').value}`);
+}
+$('plus').onclick = () => moveBy(+$('step').value);
+$('minus').onclick = () => moveBy(-$('step').value);
+document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => { $('step').value = b.dataset.step; });
+$('goto').onclick = () => {
+  if (lastPos === null) { logLine('no position yet: wait for a status update', 'bad'); return; }
+  const d = Math.round(+$('target').value - lastPos * 360 / 4096);
+  if (!d) { logLine('already there (within 1°)', 'sys'); return; }
+  moveBy(d);
+};
+$('relax').onclick = () => send('relax ' + $('sid').value);
+$('dock').onclick = () => send(`dock ${$('dspeed').value} ${$('dtrip').value}`);
+$('undock').onclick = () => send(`undock ${$('dspeed').value} ${$('dtrip').value}`);
+$('rainbow').onclick = () => send('rainbow');
+$('ledoff').onclick = () => send('off');
+$('endure').onclick = () => send('endure ' + $('esec').value);
+$('scan').onclick = () => send('scan 10');
+$('temp').onclick = () => send('temp');
+$('report').onclick = () => send('report');
+$('reconnect').onclick = () => api('/api/reconnect', {});
+$('send').onclick = () => { const c = $('raw').value.trim(); if (c) send(c); };
+$('raw').addEventListener('keydown', e => { if (e.key === 'Enter') $('send').click(); });
+$('clear').onclick = () => { $('log').innerHTML = ''; };
+$('stop').onclick = async () => {
+  await api('/api/stop', {});
+  stopPending = true;  // once the board is idle, turn torque off
+  if (!busy) { stopPending = false; send('relax ' + $('sid').value); }
+};
+$('sid').onchange = () => { lastPos = null; lastStat = 0; };
+</script>
+</body>
+</html>
