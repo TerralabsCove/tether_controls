@@ -268,13 +268,16 @@ static int runMoves(int id, const int *degs, uint8_t nMoves, int tqPct, int home
 }
 
 // Absolute goals in order, guarded, no return to start. Returns 0 ok, 1 a move blocked or timed out, 3 read/limit failure.
+// Fastest goal speed: the 12 V spec sheet's no-load 0.222 s/60 deg = 3072 steps/s (100 % on the button page).
+static const int SPEED_MAX = 3072;
+
 // speed in steps/s; trip > 0 overrides the load trip (default 80 % of the cap).
 static int runSeq(int id, const int *goals, uint8_t n, int tqPct, int speed = 150, int trip = 0) {
   char b1[10];
   int status = 0;
   g_runPeak = 0; g_runWorstErr = 0;
   g_tqLimit = tqPct * 10;
-  const int SPEED = constrain(speed, 20, 300), ACC = 10;
+  const int SPEED = constrain(speed, 20, SPEED_MAX), ACC = 10;
   int pos0, mode, tq, mn, mx, tl0 = 1000;
   if (!rd16(id, R_POS, &pos0) || !rd8(id, R_MODE, &mode) || !rd8(id, R_TORQUE, &tq) ||
       !rd16(id, R_MIN_LIM, &mn) || !rd16(id, R_MAX_LIM, &mx)) { SAY("id %d: read failed", id); return 3; }
@@ -425,7 +428,7 @@ static uint8_t cmdEndure(uint16_t maxSec, int n, bool persist) {
 // undock: pull ID 2 back to g_lo2, then torque off and the cap back to 100 %.
 static void cmdDock(bool out, int speed, int trip) {
   char b1[10];
-  const int SPEED = constrain(speed, 20, 300), ACC = 10;
+  const int SPEED = constrain(speed, 20, SPEED_MAX), ACC = 10;
   int pos0;
   if (!rd16(2, R_POS, &pos0)) { SAY("id 2: read failed"); return; }
   int goal = out ? g_hi2 : g_lo2;
@@ -458,7 +461,7 @@ static void cmdDock(bool out, int speed, int trip) {
 // trip and stall window, then hold there with torque on at no more than 30 %.
 static void cmdPush(int id, int dDeg, int speed, int capPct, int trip, int stallMs) {
   char b1[10];
-  speed = constrain(speed, 20, 300);
+  speed = constrain(speed, 20, SPEED_MAX);
   capPct = constrain(capPct, 5, 95);  // above 30 % only for freeing a stiff joint
   stallMs = constrain(stallMs, 200, 2000);
   int pos0;
