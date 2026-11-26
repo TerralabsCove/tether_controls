@@ -16,7 +16,10 @@
 //   seq <id> <p1> [p2]           guarded moves to absolute positions.
 //   dock [speed] [trip]          ID 2 out to the dock position, then hold (torque on, 30 % cap).
 //   undock [speed] [trip]        ID 2 back to the retract end, then torque off.
-//   push <deg> [speed] [cap%] [trip]   careful move of ID 2 from where it is, then hold. Defaults 30 / 20 % / 100.
+//   push <deg> [speed] [cap%] [trip] [stall_ms]   careful move of ID 2, then hold at <= 30 %. Defaults 30 / 20 % / 100 / 400.
+//   move <id> <deg> [speed] [cap%] [trip] [stall_ms]   guarded move of any servo, then hold at <= 30 %.
+//   stat <id> | relax <id>       one status line for the UI | torque off.
+//   's' during any move or endurance run stops it and holds the joint where it is.
 //   endure [sec] [n]             test motion over and over with the rainbow, one line per cycle (0 = until 's').
 //   arm <sec> | disarm | report  one-shot endurance run at the next power-up (for buck power), stats in EEPROM.
 //   rainbow | rainbow <n> <sec> | off    LEDs on D3 (rainbow runs by default).
@@ -147,6 +150,7 @@ static void cmdScan(int maxId) {
 
 static int g_tqLimit = 300;
 static int g_tripOverride = 0;   // > 0: trip at this load instead of 80 % of the cap
+static uint32_t g_stallMs = 400; // stop if the joint has not moved for this long
 static bool g_quiet = false;     // endurance: no per-move prints
 static int g_runPeak = 0;        // largest |load| seen in the last runMoves
 static int g_runWorstErr = 0;    // largest |final error| in steps over the moves that reached
@@ -180,7 +184,12 @@ static int moveGuarded(uint8_t id, int goal, int speed, int acc, uint32_t ms) {
   uint32_t t0 = millis(), lastProg = millis(), lastPrint = 0;
   int pos = -1, lastPos = -1, load = 0, cur = 0, peak = 0, raw;
   while (millis() - t0 < ms) {
-    if (!rd16(id, R_POS, &pos)) { wait(10); continue; }
+    if (!rd16(id, R_POS, &pos)) { wait(10); if (g_stopReq) break; continue; }
+    if (g_stopReq) {  // 's' from the PC: stop and hold where it is
+      wrGoal(id, pos, speed, acc);
+      SAY("    id %d STOPPED by PC at %d", id, pos);
+      return 1;
+    }
     if (rd16(id, R_LOAD, &raw)) load = loadSigned(raw);
     rd16(id, R_CURRENT, &cur);
     if (abs(load) > abs(peak)) peak = load;
@@ -196,7 +205,7 @@ static int moveGuarded(uint8_t id, int goal, int speed, int acc, uint32_t ms) {
     }
     if (lastPos < 0 || abs(pos - lastPos) >= 3) { lastPos = pos; lastProg = millis(); }
     bool tooHard = abs(load) >= loadTrip;
-    bool stuck = millis() - t0 > 300 && millis() - lastProg > 400;
+    bool stuck = millis() - t0 > 300 && millis() - lastProg > g_stallMs;
     if (tooHard || stuck) {
       wrGoal(id, pos, speed, acc);  // stop pushing, hold here
       SAY("    id %d BLOCKED at %d (%s deg short): %s, load %d (trip %d)", id, pos, deg(abs(goal - pos), b1),
@@ -445,32 +454,38 @@ static void cmdDock(bool out, int speed, int trip) {
   }
 }
 
-// push <deg> [speed] [cap%] [trip]: move ID 2 by deg from where it is, with the given speed (steps/s), torque cap
-// and load trip, then hold there with torque on. For careful moves against the dock. Defaults 30 / 20 % / 100.
-static void cmdPush(int dDeg, int speed, int capPct, int trip) {
+// push/move: guarded move of a servo by deg from where it is, with the given speed (steps/s), torque cap, load
+// trip and stall window, then hold there with torque on at no more than 30 %.
+static void cmdPush(int id, int dDeg, int speed, int capPct, int trip, int stallMs) {
   char b1[10];
   speed = constrain(speed, 20, 300);
-  capPct = constrain(capPct, 5, 30);
+  capPct = constrain(capPct, 5, 95);  // above 30 % only for freeing a stiff joint
+  stallMs = constrain(stallMs, 200, 2000);
   int pos0;
-  if (!rd16(2, R_POS, &pos0)) { SAY("id 2: read failed"); return; }
+  if (!rd16(id, R_POS, &pos0)) { SAY("id %d: read failed", id); return; }
   int goal = pos0 + (int)lroundf(dDeg * 4096.0f / 360.0f);
   if (goal < 0 || goal > 4095) { SAY("goal %d outside 0..4095", goal); return; }
   g_tqLimit = capPct * 10;
   g_tripOverride = trip;
   g_runPeak = 0;
-  wr16(2, R_TQ_LIMIT, g_tqLimit);
-  wrGoal(2, pos0, speed, 10);
-  wr8(2, R_TORQUE, 1);
+  wr16(id, R_TQ_LIMIT, g_tqLimit);
+  wrGoal(id, pos0, speed, 10);
+  wr8(id, R_TORQUE, 1);
   delay(50);
-  SAY("push: id 2 from %d (%s deg) by %+d deg to %d, speed %d, cap %d%%, trip load %d", pos0, deg(pos0, b1), dDeg,
-      goal, speed, capPct, trip);
-  int r = moveGuarded(2, goal, speed, 10, 1500 + 2000UL * abs(goal - pos0) / speed);
+  SAY("push: id %d from %d (%s deg) by %+d deg to %d, speed %d, cap %d%%, trip load %d", id, pos0, deg(pos0, b1),
+      dDeg, goal, speed, capPct, trip);
+  g_stallMs = stallMs;
+  int r = moveGuarded(id, goal, speed, 10, 1500 + 2000UL * abs(goal - pos0) / speed + stallMs);
   g_tripOverride = 0;
-  int pos = -1, load = 0, raw;
-  rd16(2, R_POS, &pos);
-  if (rd16(2, R_LOAD, &raw)) load = loadSigned(raw);
-  SAY("push: %s at %d (%s deg), moved %d steps, load now %d, peak %d. holding, torque on, cap %d%%",
-      r == 0 ? "reached" : "stopped early", pos, deg(pos, b1), pos - pos0, load, g_runPeak, capPct);
+  g_stallMs = 400;
+  int pos = -1, load = 0, raw, cur = 0;
+  rd16(id, R_POS, &pos);
+  if (rd16(id, R_LOAD, &raw)) load = loadSigned(raw);
+  rd16(id, R_CURRENT, &cur);
+  int holdCap = min(capPct, 30);  // never hold at more than 30 %
+  wr16(id, R_TQ_LIMIT, holdCap * 10);
+  SAY("push: %s at %d (%s deg), moved %d steps, load now %d, current %d, peak %d. holding, torque on, cap %d%%",
+      r == 0 ? "reached" : "stopped early", pos, deg(pos, b1), pos - pos0, load, cur, g_runPeak, holdCap);
 }
 
 static void cmdReport() {
@@ -555,6 +570,8 @@ void loop() {
   line[len] = 0;
   len = 0;
 
+  if (!strcmp(line, "s")) return;  // a stop request that arrived while idle: nothing to stop
+  g_stopReq = false;                 // a new command; 's' during it stops it
   char *cmd = strtok(line, " ");
   char *a1 = strtok(nullptr, " "), *a2 = strtok(nullptr, " "), *a3 = strtok(nullptr, " ");
   int a = a1 ? atoi(a1) : -1, b = a2 ? atoi(a2) : -1, c3 = a3 ? atoi(a3) : -1;
@@ -577,8 +594,30 @@ void loop() {
   else if (!strcmp(cmd, "disarm")) { g_rec.state = ST_IDLE; recSave(); SAY("disarmed"); }
   else if (!strcmp(cmd, "report")) cmdReport();
   else if (!strcmp(cmd, "push") && a1) {
-    char *a4 = strtok(nullptr, " ");
-    cmdPush(a, a2 ? b : 30, a3 ? c3 : 20, a4 ? atoi(a4) : 100);
+    char *a4 = strtok(nullptr, " "), *a5 = strtok(nullptr, " ");
+    cmdPush(2, a, a2 ? b : 30, a3 ? c3 : 20, a4 ? atoi(a4) : 100, a5 ? atoi(a5) : 400);
+  }
+  else if (!strcmp(cmd, "move") && a2) {
+    // move <id> <deg> [speed] [cap%] [trip] [stall_ms]: guarded move of any servo, then hold at <= 30 %.
+    char *a4 = strtok(nullptr, " "), *a5 = strtok(nullptr, " "), *a6 = strtok(nullptr, " ");
+    cmdPush(a, b, a3 ? c3 : 50, a4 ? atoi(a4) : 30, a5 ? atoi(a5) : 240, a6 ? atoi(a6) : 400);
+  }
+  else if (!strcmp(cmd, "stat") && a1) {
+    // One line for the UI: STAT id pos load current volt_dV temp_C torque moving chip_C ok (Nano: chip "na")
+    int pos = -1, raw = 0, cur = -1, v = -1, t = -1, tq = -1, mv = -1;
+    bool ok = rd16(a, R_POS, &pos);
+    int load = rd16(a, R_LOAD, &raw) ? loadSigned(raw) : 0;
+    rd16(a, R_CURRENT, &cur); rd8(a, R_VOLT, &v); rd8(a, R_TEMP, &t); rd8(a, R_TORQUE, &tq); rd8(a, 66, &mv);
+    SAY("STAT %d %d %d %d %d %d %d %d na %d", a, ok ? pos : -1, load, cur, v, t, tq, mv, ok ? 1 : 0);
+  }
+  else if (!strcmp(cmd, "relax") && a1) {
+    // Torque off and the torque cap back to 100 %. The joint goes limp where it is.
+    int pos = -1, load = 0, raw;
+    rd16(a, R_POS, &pos);
+    if (rd16(a, R_LOAD, &raw)) load = loadSigned(raw);
+    bool ok = wr8(a, R_TORQUE, 0);
+    wr16(a, R_TQ_LIMIT, 1000);
+    SAY("relax id %d: %s at %d, load before %d", a, ok ? "torque off" : "write failed", pos, load);
   }
   else if (!strcmp(cmd, "dock")) cmdDock(true, a1 ? a : DOCK_SPEED, a2 ? b : DOCK_TRIP);
   else if (!strcmp(cmd, "undock")) cmdDock(false, a1 ? a : DOCK_SPEED, a2 ? b : DOCK_TRIP);
