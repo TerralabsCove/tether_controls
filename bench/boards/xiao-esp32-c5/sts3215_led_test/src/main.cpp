@@ -35,7 +35,20 @@
 #include <esp_rom_gpio.h>
 #include <hal/uart_ll.h>
 
+#ifdef BUS_BUFFERED
+// The bus through the EE2 buffer board (74LS125, drawing TC-EE2-BUF-001): separate TX and RX and a DIR pin
+// (low = send). The ESP hears its own bytes as an echo.
+#ifndef BUS_TX
+#define BUS_TX D7
+#define BUS_RX D6
+#define BUS_DIR D8
+#endif
+static const int BUS_PIN = BUS_RX;  // the pin 'line' reads and 'ledpin' refuses
+static int g_tries = 3;             // replies still arrive garbled at times
+#else
 static const int BUS_PIN = D2;
+static int g_tries = 1;
+#endif
 static int RING_PIN = D3;
 static const uart_port_t BUS = UART_NUM_1;
 static bool ppTx = true;  // push-pull while sending
@@ -69,6 +82,13 @@ static bool busOpen(int pin, int baud) {
   c.source_clk = UART_SCLK_DEFAULT;
   if (uart_driver_install(BUS, 512, 0, 0, NULL, 0) != ESP_OK) return false;
   if (uart_param_config(BUS, &c) != ESP_OK) return false;
+#ifdef BUS_BUFFERED
+  gpio_reset_pin((gpio_num_t)BUS_TX);  // GPIO11 and GPIO12 boot as UART0 pins
+  gpio_reset_pin((gpio_num_t)BUS_RX);
+  pinMode(BUS_DIR, OUTPUT);
+  digitalWrite(BUS_DIR, HIGH);  // driver off
+  return uart_set_pin(BUS, BUS_TX, BUS_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) == ESP_OK;
+#endif
   if (uart_set_pin(BUS, pin, pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK) return false;
   // uart_set_pin leaves a shared pad input-only. Re-enable output as open drain, then route both signals.
   gpio_set_direction((gpio_num_t)pin, GPIO_MODE_INPUT_OUTPUT_OD);
@@ -79,6 +99,14 @@ static bool busOpen(int pin, int baud) {
 }
 
 static void busSend(const uint8_t *pkt, int k) {
+#ifdef BUS_BUFFERED
+  digitalWrite(BUS_DIR, LOW);
+  uart_write_bytes(BUS, pkt, k);
+  uint32_t t1 = micros();
+  while (!uart_ll_is_tx_idle(UART_LL_GET_HW(BUS)) && micros() - t1 < 20000) {}
+  digitalWrite(BUS_DIR, HIGH);  // driver off before the servo answers
+  return;
+#endif
   uint32_t reg = GPIO_PIN0_REG + 4 * BUS_PIN;
   if (ppTx) REG_CLR_BIT(reg, BIT(GPIO_PIN0_PAD_DRIVER_S));  // push-pull
   uart_write_bytes(BUS, pkt, k);
@@ -111,7 +139,12 @@ static int txrx(uint8_t id, uint8_t ins, const uint8_t *p, int n, uint8_t *out, 
     if (r > 0) got += r;
   }
   lastRawN = got;
+#ifdef BUS_BUFFERED
+  if (got < k || memcmp(lastRaw, pkt, k) != 0) { g_commErr++; return got < k ? -5 : -6; }  // no echo, or corrupt
+  int start = k;
+#else
   int start = (got >= k && memcmp(lastRaw, pkt, k) == 0) ? k : 0;  // skip our own echo
+#endif
   if (id == 0xFE) return 0;
   for (int i = start; i + 5 < got; i++) {
     if (lastRaw[i] != 0xFF || lastRaw[i + 1] != 0xFF || lastRaw[i + 2] != id) continue;
@@ -131,7 +164,9 @@ static int txrx(uint8_t id, uint8_t ins, const uint8_t *p, int n, uint8_t *out, 
 
 static bool rd(uint8_t id, uint8_t addr, uint8_t len, uint8_t *out) {
   uint8_t p[2] = {addr, len};
-  return txrx(id, 0x02, p, 2, out, len) == len;
+  for (int t = 0; t < g_tries; t++)
+    if (txrx(id, 0x02, p, 2, out, len) == len) return true;
+  return false;
 }
 static bool rd16(uint8_t id, uint8_t addr, int *v) {
   uint8_t b[2];
@@ -150,7 +185,9 @@ static bool wr(uint8_t id, uint8_t addr, const uint8_t *d, uint8_t n) {
   p[0] = addr;
   memcpy(p + 1, d, n);
   uint8_t dummy[1];
-  return txrx(id, 0x03, p, n + 1, dummy, 0) >= 0;
+  for (int t = 0; t < g_tries; t++)
+    if (txrx(id, 0x03, p, n + 1, dummy, 0) >= 0) return true;
+  return false;
 }
 static bool wr8(uint8_t id, uint8_t addr, uint8_t v) { return wr(id, addr, &v, 1); }
 static bool wr16(uint8_t id, uint8_t addr, int v) {
@@ -228,9 +265,29 @@ static uint8_t g_eeOn = 0;            // bit k: servo k+1 torqued by ROS (was in
 static int g_eeGoal[2] = {-1, -1}, g_eeSpeed[2] = {-1, -1}, g_eeCapSet = -1;
 static uint32_t g_eeApplied = 0, g_eeTrips = 0, g_eeTimeouts = 0;
 
+// ---- debug commands over the radio: a T_EE_CMD frame with flag 0x80 (and the relax flag, so a build without
+// this treats it as relax). The EeCmd fields carry: goal[0] servo id, goal[1] a, speed b, cap c, pad the op.
+// The reply is a T_EE_STATE-shaped frame with ee = EE_ID | 0x80. See dbgRun below.
+enum : uint8_t { DBG_ARM = 1, DBG_PING, DBG_STAT, DBG_MOVE, DBG_RELAX, DBG_RD, DBG_WR, DBG_STOP };
+struct EeDbgIn { uint8_t op, id, c; uint16_t seq, a, b; };
+static EeDbgIn g_dbgIn;
+static volatile bool g_dbgNew = false, g_dbgStop = false;
+
 static void eeOnRecv(const esp_now_recv_info_t *, const uint8_t *d, int n) {
   if (n != 5 + 12 || d[0] != 0xA5 || d[1] != 0x5A || d[2] != 12 || d[3] != 0x05) return;
   if (eeCrc8(d + 3, 13) != d[16] || d[4] != EE_ID) return;
+  if (d[5] & 0x80) {
+    EeDbgIn q;
+    q.op = d[15]; q.id = d[8]; q.c = d[14];
+    memcpy(&q.seq, d + 6, 2);
+    memcpy(&q.a, d + 10, 2);
+    memcpy(&q.b, d + 12, 2);
+    if (q.op == DBG_STOP) g_dbgStop = true;
+    portENTER_CRITICAL(&g_eeMux);
+    g_dbgIn = q; g_dbgNew = true;
+    portEXIT_CRITICAL(&g_eeMux);
+    return;
+  }
   EeCmdIn c;
   c.flags = d[5];
   memcpy(&c.seq, d + 6, 2);
@@ -323,7 +380,13 @@ static void eeReadServo(uint8_t id, uint8_t *r) {
   memset(r, 0, 10);
   r[0] = id;
   uint8_t b[8], c[2], tq[1];
-  if (!rd(id, R_POS, 8, b)) return;  // 56-57 pos, 58-59 speed, 60-61 load, 62 volt, 63 temp
+  static bool missed[2];
+  int tries = g_tries;
+  if (missed[(id - 1) & 1]) g_tries = 1;  // a servo that is not there must not slow the telemetry
+  bool got = rd(id, R_POS, 8, b);  // 56-57 pos, 58-59 speed, 60-61 load, 62 volt, 63 temp
+  g_tries = tries;
+  missed[(id - 1) & 1] = !got;
+  if (!got) return;
   int16_t load = (int16_t)loadSigned(b[4] | (b[5] << 8));
   uint16_t cur = rd(id, R_CURRENT, 2, c) ? (uint16_t)(c[0] | (c[1] << 8)) : 0;
   bool torque = rd(id, R_TORQUE, 1, tq) && tq[0];
@@ -404,13 +467,16 @@ static void ringTick() {
 }
 static void pollStop() {
   while (Serial.available()) if (Serial.read() == 's') g_stopReq = true;
+#ifdef EE_ID
+  if (g_dbgStop) { g_dbgStop = false; g_stopReq = true; }
+#endif
 }
 static void wait(uint32_t ms) {
   uint32_t t0 = millis();
   while (millis() - t0 < ms) { ringTick(); pollStop(); }
 }
 
-// 0 = reached, 1 = blocked, 2 = timeout
+// 0 = reached, 1 = blocked, 2 = timeout, 3 = stopped ('s' or a debug stop)
 static int moveGuarded(uint8_t id, int goal, int speed, int acc, uint32_t ms) {
   char b1[10];
   wrGoal(id, goal, speed, acc);
@@ -419,6 +485,11 @@ static int moveGuarded(uint8_t id, int goal, int speed, int acc, uint32_t ms) {
   int pos = -1, lastPos = -1, load = 0, cur = 0, peak = 0, raw;
   while (millis() - t0 < ms) {
     if (!rd16(id, R_POS, &pos)) { wait(10); continue; }
+    if (g_stopReq) {
+      wrGoal(id, pos, speed, acc);  // hold here
+      SAY("    id %d STOPPED at %d", id, pos);
+      return 3;
+    }
     if (rd16(id, R_LOAD, &raw)) load = loadSigned(raw);
     rd16(id, R_CURRENT, &cur);
     if (abs(load) > abs(peak)) peak = load;
@@ -447,6 +518,131 @@ static int moveGuarded(uint8_t id, int goal, int speed, int acc, uint32_t ms) {
   SAY("    id %d TIMEOUT at %d", id, pos);
   return 2;
 }
+
+#ifdef EE_ID
+// ---------------------------------------------------------------- debug commands over the radio
+// Manual commands for any servo id, outside the EE_LIM goal limits of the ROS path (tether_ros tools/ee_debug.py).
+// Still guarded: arm first (and again after 2 min idle), a move caps torque (5..60 %) and speed (10..1000 steps/s)
+// and stops on load or stall like every bench move, writes below register 40 (EEPROM) are refused, and torque goes
+// off 10 s after the last debug command. One command runs at a time; a stop cuts a move short.
+// Reply status: 0 ok, 1 not armed, 2 no reply from the servo, 3 bad argument, 4 blocked, 5 timeout, 6 stopped,
+// 7 unknown op, 8 refused while ROS commands are active.
+static uint16_t g_dbgSeq = 0, g_dbgReplySeq = 0;
+static bool g_dbgHave = false, g_dbgArmed = false, g_dbgTorque = false;
+static uint32_t g_dbgLast = 0;
+static uint8_t g_dbgFrame[5 + 10 + 20];
+
+static void dbgSend() {
+  esp_now_send(EE_BCAST, g_dbgFrame, sizeof g_dbgFrame);
+  delay(3);
+  esp_now_send(EE_BCAST, g_dbgFrame, sizeof g_dbgFrame);  // broadcasts are not acked: say it twice
+}
+static void dbgReply(const EeDbgIn &q, uint8_t status, const uint8_t *data = nullptr, int n = 0) {
+  uint8_t *f = g_dbgFrame, *p = f + 4;
+  memset(f, 0, sizeof g_dbgFrame);
+  uint32_t ms = millis();
+  p[0] = EE_ID | 0x80;
+  memcpy(p + 2, &g_dbgReplySeq, 2);
+  g_dbgReplySeq++;
+  memcpy(p + 4, &ms, 4);
+  memcpy(p + 8, &q.seq, 2);
+  p[10] = q.op; p[11] = status; p[12] = q.id;
+  if (n > 17) n = 17;
+  if (n) memcpy(p + 13, data, n);
+  f[0] = 0xA5; f[1] = 0x5A; f[2] = 30; f[3] = 0x04;
+  f[4 + 30] = eeCrc8(f + 3, 31);
+  dbgSend();
+}
+static void dbgRun(const EeDbgIn &q) {
+  uint8_t d[17] = {0};
+  if (q.op == DBG_ARM) {
+    g_dbgArmed = q.a == 0xDB61;
+    dbgReply(q, g_dbgArmed ? 0 : 3);
+    return;
+  }
+  if (!g_dbgArmed) { dbgReply(q, 1); return; }
+  switch (q.op) {
+    case DBG_PING: {
+      uint8_t dummy[1];
+      bool ok = false;
+      for (int t = 0; t < g_tries && !ok; t++) ok = txrx(q.id, 0x01, nullptr, 0, dummy, 0) >= 0;
+      dbgReply(q, ok ? 0 : 2);
+      return;
+    }
+    case DBG_STAT: {  // pos u16, load raw u16, volt, temp, torque, mode, current u16
+      uint8_t b[8];
+      int cur = 0, tq = 0, mode = 0;
+      if (!rd(q.id, R_POS, 8, b)) { dbgReply(q, 2); return; }
+      rd16(q.id, R_CURRENT, &cur); rd8(q.id, R_TORQUE, &tq); rd8(q.id, R_MODE, &mode);
+      d[0] = b[0]; d[1] = b[1]; d[2] = b[4]; d[3] = b[5]; d[4] = b[6]; d[5] = b[7];
+      d[6] = tq; d[7] = mode; d[8] = cur & 0xFF; d[9] = cur >> 8;
+      dbgReply(q, 0, d, 10);
+      return;
+    }
+    case DBG_MOVE: {  // a goal (steps), b speed (steps/s), c cap (%). Reply: end pos u16, peak load u16
+      if (g_eeActive) { dbgReply(q, 8); return; }
+      int goal = q.a, speed = constrain((int)q.b, 10, 1000), cap = constrain((int)q.c, 5, 60), pos, mode;
+      if (goal > 4095) { dbgReply(q, 3); return; }
+      if (!rd16(q.id, R_POS, &pos) || !rd8(q.id, R_MODE, &mode)) { dbgReply(q, 2); return; }
+      if (mode != 0) { dbgReply(q, 3); return; }  // position mode only
+      bool quiet = g_quiet;
+      g_quiet = true; g_stopReq = false; g_dbgStop = false; g_runPeak = 0;
+      g_tqLimit = cap * 10;
+      wr16(q.id, R_TQ_LIMIT, g_tqLimit);
+      wrGoal(q.id, pos, 100, 0);  // hold where it is, then torque on
+      wr8(q.id, R_TORQUE, 1);
+      g_dbgTorque = true;
+      int r = moveGuarded(q.id, goal, speed, 50, (uint32_t)abs(goal - pos) * 1000 / speed + 3000);
+      g_quiet = quiet; g_stopReq = false;
+      int end = pos;
+      rd16(q.id, R_POS, &end);
+      d[0] = end & 0xFF; d[1] = end >> 8; d[2] = g_runPeak & 0xFF; d[3] = g_runPeak >> 8;
+      dbgReply(q, r == 0 ? 0 : r == 1 ? 4 : r == 2 ? 5 : 6, d, 4);
+      return;
+    }
+    case DBG_RELAX:  // id 254: every servo
+      dbgReply(q, wr8(q.id, R_TORQUE, 0) ? 0 : 2);
+      if (q.id == 0xFE) g_dbgTorque = false;
+      return;
+    case DBG_RD: {  // a register, c length 1 or 2. Reply: value u16
+      int v = 0;
+      if (q.c != 1 && q.c != 2) { dbgReply(q, 3); return; }
+      if (!(q.c == 1 ? rd8(q.id, q.a, &v) : rd16(q.id, q.a, &v))) { dbgReply(q, 2); return; }
+      d[0] = v & 0xFF; d[1] = v >> 8;
+      dbgReply(q, 0, d, 2);
+      return;
+    }
+    case DBG_WR:  // a register (RAM only, >= 40), b value, c length 1 or 2
+      if ((q.c != 1 && q.c != 2) || q.a < 40 || q.a > 255) { dbgReply(q, 3); return; }
+      if (q.a == R_TORQUE && q.b) g_dbgTorque = true;
+      dbgReply(q, (q.c == 1 ? wr8(q.id, q.a, q.b) : wr16(q.id, q.a, q.b)) ? 0 : 2);
+      return;
+    case DBG_STOP: dbgReply(q, 0); return;  // the stop itself was taken in the receive callback
+    default: dbgReply(q, 7);
+  }
+}
+static void dbgTick() {
+  if (!g_eeUp) return;
+  if (g_dbgArmed && millis() - g_dbgLast > 120000) g_dbgArmed = false;
+  if (g_dbgTorque && !g_eeActive && millis() - g_dbgLast > 10000) {
+    wr8(0xFE, R_TORQUE, 0);
+    g_dbgTorque = false;
+  }
+  if (!g_dbgNew) return;
+  EeDbgIn q;
+  portENTER_CRITICAL(&g_eeMux);
+  q = g_dbgIn; g_dbgNew = false;
+  portEXIT_CRITICAL(&g_eeMux);
+  g_dbgLast = millis();
+  if (g_dbgHave && q.seq == g_dbgSeq) { dbgSend(); return; }  // a retry of the command just run: its reply again
+  g_dbgHave = true;
+  g_dbgSeq = q.seq;
+  dbgRun(q);
+  g_dbgLast = millis();
+}
+#else
+static void dbgTick() {}
+#endif
 
 // Moves id by each of the offsets in degs[] (relative to the start), returning to start after each.
 // Returns 0 ok, 1 an outward move was blocked or timed out, 2 could not get back to start, 3 read/limit failure.
@@ -770,6 +966,7 @@ void setup() {
 void loop() {
   static char line[40];
   static uint8_t len = 0;
+  dbgTick();  // debug commands over the radio (EE_ID builds)
   if (!Serial.available()) { ringTick(); return; }
   g_quietUntil = millis() + 300;  // the PC sends one wake byte, waits, then the command
   char c = Serial.read();
@@ -780,6 +977,7 @@ void loop() {
   if (len == 0) return;
   line[len] = 0;
   len = 0;
+  g_stopReq = false;
 
   char *cmd = strtok(line, " ");
   char *a1 = strtok(nullptr, " "), *a2 = strtok(nullptr, " "), *a3 = strtok(nullptr, " ");
@@ -858,6 +1056,26 @@ void loop() {
       }
     }
   }
+#ifdef BUS_BUFFERED
+  else if (!strcmp(cmd, "bustest")) {
+    // Loop check with no servo needed: RX must follow TX while DIR is low, and stay high while DIR is high.
+    uart_driver_delete(BUS);
+    pinMode(BUS_TX, OUTPUT);
+    pinMode(BUS_RX, INPUT);
+    int r[4];
+    for (int i = 0; i < 4; i++) {
+      digitalWrite(BUS_DIR, i < 2 ? LOW : HIGH);
+      digitalWrite(BUS_TX, i & 1);
+      delay(5);
+      r[i] = digitalRead(BUS_RX);
+    }
+    digitalWrite(BUS_DIR, HIGH);
+    SAY("bustest (tx GPIO%d rx GPIO%d dir GPIO%d): driver on: tx0->rx%d tx1->rx%d | driver off: tx0->rx%d tx1->rx%d -> %s",
+        BUS_TX, BUS_RX, BUS_DIR, r[0], r[1], r[2], r[3],
+        r[0] == 0 && r[1] == 1 && r[2] == 1 && r[3] == 1 ? "buffer OK" : r[0] == 1 ? "RX never goes low" : "wrong");
+    SAY("bus reopen: %s", busOpen(BUS_PIN, 1000000) ? "ok" : "FAILED");
+  }
+#endif
   else if (!strcmp(cmd, "line")) {
     // Idle level with the weak pull-down, then pull-up. A powered servo's pull-up wins over the pull-down.
     gpio_set_pull_mode((gpio_num_t)BUS_PIN, GPIO_PULLDOWN_ONLY); delay(20);

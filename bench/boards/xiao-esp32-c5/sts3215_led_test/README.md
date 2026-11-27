@@ -80,6 +80,36 @@ Over USB serial at 115200. Use `bench_cli.py` or `endure_log.py`:
 Every move caps torque (register 48, RAM) and stops and holds where it is if the load reaches the trip or the
 joint stops moving for 0.4 s.
 
+## Buffer board build and debug commands over the radio
+
+`pio run -e xiao_c5_ee2_buf -t upload` builds EE2 for the servo bus buffer board (74LS125, drawing TC-EE2-BUF-001):
+TX D7 (GPIO12), RX D6 (GPIO11), DIR D8 (GPIO8, low = send) instead of one wire on D2. The ESP hears its own bytes as
+an echo; the build checks the echo, skips it, and retries a read or write up to 3 times. `bustest` checks the buffer
+loop with no servo: RX must follow TX while DIR is low.
+
+Board changes that this build was run with on 2026-11-26 (tether_context note
+`notes/2026-11-26-steve-ee2-servo-buffer-debug.md`):
+
+- R6 (the DATA pull-up to +5V, 1.1 kΩ on this board) goes to U1 pin 3, the chip side of R4, not to DATA. On the DATA
+  side the pull-up current crossed R4 and a low on DATA measured 1.04 V; the servo's spec sheet wants under 0.45 V.
+  After the move it measured 0.13 V.
+- The servo's GND and the pack's − must be joined to the XIAO's GND. On EE2's board that link comes through the
+  buck, so with the XIAO on a laptop's USB and the buck off, the servo does not answer.
+
+Every `EE_ID` build also takes debug commands over the radio, for any servo id and outside the `EE_LIM` goal limits
+(tether_ros `tools/ee_debug.py`). A debug command is a T_EE_CMD frame with flag 0x80; the reply is a
+T_EE_STATE-shaped frame with `ee | 0x80`, so the tethersmall gateway forwards both unchanged. Guards: arm first
+(lapses after 2 min idle), torque cap 5-60 %, speed 10-1000 steps/s, the same load and stall stop as every bench
+move, registers below 40 (EEPROM) refused, torque off 10 s after the last debug command, and no debug move while ROS
+commands are active.
+
+Tested: EE2's servo 2 swung 30° each way through Board 10 with `ee_debug.py`, every leg within 0.7° of its target.
+Not tested: the ROS goal path (T_EE_CMD follow) on this build, a servo at ID 1, and the reply error rate.
+
+`../../xiao-esp32-s3/sts3215_buf_test/` is a smaller sketch for a XIAO ESP32-S3 on the same board (arduino-cli):
+`bustest`, `low` (hold DATA low for a multimeter), `bauds`, `scan`, `stat`, `swing`. Its loop test and echo passed on
+the board; it has not had a reply from a servo, and its TX pin was changed from D9 to D7 afterwards without a re-run.
+
 ## How the one-wire bus is driven
 
 TX and RX share the pad. The pad is open drain with pull-up while listening. While sending it is
