@@ -67,7 +67,10 @@ Over USB serial at 115200. Use `bench_cli.py` or `endure_log.py`:
 | `swing <id> <deg> [tq%]`, `go <id> <deg> [tq%]`, `seq <id> <p1> [p2]` | Guarded test moves. |
 | `dock [speed] [trip]` | ID 2 out to 1660 (145.9°), then hold with torque on at a 30 % cap. Default 50 steps/s, trip 160. |
 | `undock [speed] [trip]` | ID 2 back to 1080 (94.9°), then torque off. |
-| `push <deg> [speed] [cap%] [trip]` | Careful move of ID 2 from where it is, then hold. Default 30 steps/s, 20 %, trip 100. |
+| `push <deg> [speed] [cap%] [trip] [stall_ms]` | Careful move of ID 2 from where it is, then hold. Default 30 steps/s, 20 %, trip 100, stall 400 ms. Cap 5-95 %. |
+| `move <id> <deg> [speed] [cap%] [trip] [stall_ms]` | The same for any servo. Default 50 steps/s, 30 %, trip 240, stall 400 ms. Holds at no more than 30 %. |
+| `stat <id>` | One status line for the button page: `STAT id pos load current volt temp torque moving chip ok`. |
+| `relax <id>` | Torque off, cap back to 100 %. The joint goes limp where it is. |
 | `endure [sec] [n]` | ID 1 ±50° and ID 2 dock/undock over and over, rainbow on, one CSV line per cycle with the chip temperature. |
 | `arm <sec>`, `disarm`, `report` | One-shot endurance run at the next power-up. Stats kept in flash. |
 | `rainbow`, `rainbow <n> <sec>`, `off` | The rainbow runs by default. |
@@ -78,7 +81,23 @@ Over USB serial at 115200. Use `bench_cli.py` or `endure_log.py`:
 | `setid <id> <new>` | Change a servo's bus id (EEPROM). Torque must be off; refused if `<new>` already answers. Only one servo with `<id>` on the bus. |
 
 Every move caps torque (register 48, RAM) and stops and holds where it is if the load reaches the trip or the
-joint stops moving for 0.4 s.
+joint stops moving for the stall window (0.4 s by default). Sending `s` stops a move part-way and holds.
+
+## Button page
+
+`ui/server.py` holds the board's USB serial port and serves `ui/index.html` on http://127.0.0.1:8765 (this
+machine only). It works with this board or the Nano.
+
+```bash
+~/.platformio/penv/bin/python ui/server.py --port /dev/cu.usbserial-2120
+```
+
+Leave out `--port` to use the first `/dev/cu.usbmodem*` or `/dev/cu.usbserial*`. Close any other serial
+monitor first. The page polls `stat` and shows position, load against the cap, torque, current, temperature and
+supply. It has jog buttons (`move`), go to angle, torque off, dock and undock, rainbow, endurance, scan and a raw
+command box. STOP sends `s`, then `relax` once the board is idle.
+
+The jog buttons and mid-move STOP had not been tried on hardware when this was written (2026-11-25).
 
 ## Buffer board build and debug commands over the radio
 
