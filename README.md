@@ -1,3 +1,7 @@
+> **Moved, 2026-11-28.** This repo now lives in [TerralabsCove/tether-firmware](https://github.com/TerralabsCove/tether-firmware),
+> folder [`tether_controls/`](https://github.com/TerralabsCove/tether-firmware/tree/main/tether_controls), with its paths unchanged. This repo is archived: make
+> changes there.
+
 # Tether controls
 
 Motor-control firmware and commissioning tools for the three-module Tether
