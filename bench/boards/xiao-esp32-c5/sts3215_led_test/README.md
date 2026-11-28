@@ -95,6 +95,14 @@ monitor first. The page polls `stat` and shows position, load against the cap, t
 supply. It has jog buttons (`move`), go to angle, torque off, dock and undock, rainbow, endurance, scan and a raw
 command box. STOP sends `s`, then `relax` once the board is idle.
 
+Speed, torque cap, load trip and the load readout are % of the 12 V spec sheet (ST-3215-C018): 100 % speed is
+the no-load 0.222 s/60° (3072 steps/s) and 100 % torque or load is stall (30 kg·cm). The Nano firmware allows
+full speed; this C5 firmware still caps speed at 300 steps/s (9.8 %), so higher settings run at 9.8 % here.
+
+Dock and undock on the page move ID 2 to the angles typed next to them (default 112.1° and 18.9°, 5° and 4°
+short of the new end effector's over-torque trips at 117.1° and 14.9°), using `move`. Dock holds at the 30 % cap;
+undock then sends `relax 2`. The firmware's own `dock` and `undock` commands still use 145.9° and 94.9°.
+
 The jog buttons and mid-move STOP had not been tried on hardware when this was written (2026-11-25).
 
 ## How the one-wire bus is driven

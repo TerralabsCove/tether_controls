@@ -73,7 +73,7 @@
     </h2>
     <div class="stats">
       <div class="stat"><div class="k">Position</div><div class="v" id="pdeg">–</div><div class="s" id="psteps"></div></div>
-      <div class="stat"><div class="k">Load (of 1000)</div><div class="v" id="pload">–</div><div class="bar"><i id="loadbar"></i><b id="capmark"></b></div></div>
+      <div class="stat"><div class="k">Load (% of stall)</div><div class="v" id="pload">–</div><div class="bar"><i id="loadbar"></i><b id="capmark"></b></div></div>
       <div class="stat"><div class="k">Torque</div><div class="v" id="ptq">–</div><div class="s" id="pmove"></div></div>
       <div class="stat"><div class="k">Current</div><div class="v" id="pcur">–</div><div class="s">raw units</div></div>
       <div class="stat"><div class="k">Servo temp</div><div class="v" id="ptemp">–</div></div>
@@ -91,9 +91,9 @@
       <button class="chip" data-step="10">10</button><button class="chip" data-step="30">30</button>
     </div>
     <div class="row">
-      <label>Speed (steps/s)<input id="speed" type="number" value="50" min="20" max="300"></label>
+      <label>Speed %<input id="speed" type="number" value="1.6" min="0.7" max="100" step="0.1"></label>
       <label>Torque cap %<input id="cap" type="number" value="30" min="5" max="95"></label>
-      <label>Load trip<input id="trip" type="number" value="240" min="20" max="1000"></label>
+      <label>Load trip %<input id="trip" type="number" value="24" min="2" max="100" step="0.1"></label>
       <label>Stall (ms)<input id="stall" type="number" value="400" min="200" max="2000"></label>
     </div>
     <div id="capwarn" class="warn"></div>
@@ -103,7 +103,8 @@
       <button class="big" id="relax">Torque off</button>
     </div>
     <div class="note">+ is the direction the old end effector docked in. Each move stops and holds if the load
-      reaches the trip or the joint stops moving for the stall time, then holds at no more than 30 %.</div>
+      reaches the trip or the joint stops moving for the stall time, then holds at no more than 30 %. Speed, torque and load are % of the spec sheet: 100 % is full
+      speed and stall torque.</div>
     <div class="row" style="margin-top:10px">
       <label>Go to angle (deg)<input id="target" type="number" step="1"></label>
       <button id="goto">Go</button>
@@ -113,13 +114,18 @@
   <section class="card">
     <h2>Dock (ID 2)</h2>
     <div class="row">
-      <label>Speed<input id="dspeed" type="number" value="50" min="20" max="300"></label>
-      <label>Trip<input id="dtrip" type="number" value="160" min="20" max="1000"></label>
+      <label>Speed %<input id="dspeed" type="number" value="1.6" min="0.7" max="100" step="0.1"></label>
+      <label>Trip %<input id="dtrip" type="number" value="16" min="2" max="100" step="0.1"></label>
+    </div>
+    <div class="row">
+      <label>Dock to (deg)<input id="dockdeg" type="number" value="112.1" step="0.1"></label>
       <button class="primary" id="dock">Dock</button>
+      <label>Undock to (deg)<input id="undockdeg" type="number" value="18.9" step="0.1"></label>
       <button id="undock">Undock</button>
     </div>
-    <div class="note">Dock goes to 145.9° and holds; undock goes to 94.9° and turns torque off. These are the old
-      end effector's positions. Check them before using dock on the new one.</div>
+    <div class="note">New end effector: the over-torque trip hits at 117.1° docking and 14.9° undocking, so these
+      stop 5° and 4° short. Dock moves ID 2 there and holds at the 30 % cap; undock moves it there, then torque off.
+      Moves are whole degrees, so it lands within about 0.5° of the target.</div>
   </section>
 
   <section class="card">
@@ -198,7 +204,7 @@ function showStat(p) {
 }
 
 function setLoad(load) {
-  $('pload').textContent = load;
+  $('pload').textContent = (load / 10).toFixed(1) + ' %';
   $('loadbar').style.width = Math.min(100, Math.abs(load) / 10) + '%';
   $('capmark').style.left = Math.min(100, +$('cap').value) + '%';
 }
@@ -207,6 +213,8 @@ function handleLine(t) {
   if (t.startsWith('STAT ')) { showStat(t.split(' ').slice(1)); return; }
   const m = t.match(/pos (\d+) \((-?[\d.]+) deg to go\) load (-?\d+) cur (-?\d+)/);
   if (m) { lastPos = +m[1]; $('pdeg').textContent = deg(+m[1]) + '°'; $('psteps').textContent = 'step ' + m[1]; setLoad(+m[3]); $('pcur').textContent = m[4]; }
+  if (undockPending && t.startsWith('push: ') && t.includes('holding')) { undockPending = false; undockRelax = true; }
+  if (undockPending && /read failed|outside 0\.\.4095/.test(t)) undockPending = false;
   const cls = t.startsWith('>>>') ? 'cmd' : /BLOCKED|STOPPED|failed|refused|TIMEOUT|error/i.test(t) ? 'bad' : t.startsWith('[') ? 'sys' : '';
   logLine(t, cls);
 }
@@ -221,7 +229,8 @@ async function poll() {
     $('busy').className = 'pill ' + (s.busy ? 'busy' : '');
     for (const [seq, , text] of s.lines) { since = seq; handleLine(text); }
     document.querySelectorAll('main button').forEach(b => { if (b.id !== 'reconnect' && b.id !== 'clear') b.disabled = busy || !connected; });
-    if (stopPending && !busy) { stopPending = false; await send('relax ' + $('sid').value); }
+    if (stopPending && !busy) { stopPending = false; undockPending = undockRelax = false; await send('relax ' + $('sid').value); }
+    if (undockRelax && !busy) { undockRelax = false; await send('relax 2'); }
     if (!busy && connected && $('auto').checked && Date.now() - lastStat > 1500) {
       lastStat = Date.now();
       send('stat ' + $('sid').value);
@@ -232,9 +241,19 @@ async function poll() {
 }
 setInterval(poll, 300);
 
+// Percent of the 12 V spec sheet (ST-3215-C018): 100 % speed = no-load 0.222 s/60° = 3072 steps/s;
+// 100 % torque / load = stall torque (the servo's 0..1000 torque and load scale).
+const SPEC_STEPS_S = 3072, FW_MAX_STEPS_S = 3072, FW_MIN_STEPS_S = 20;  // Nano firmware allows full speed
+function spd(id) {
+  const want = Math.round(+$(id).value * SPEC_STEPS_S / 100);
+  if (want > FW_MAX_STEPS_S) logLine(`speed ${$(id).value}% is above what the firmware allows; it will run at ${(FW_MAX_STEPS_S * 100 / SPEC_STEPS_S).toFixed(1)}%`, 'bad');
+  return Math.max(FW_MIN_STEPS_S, Math.min(FW_MAX_STEPS_S, want));
+}
+function trp(id) { return Math.max(20, Math.min(1000, Math.round(+$(id).value * 10))); }
+
 function capOk() {
   const cap = +$('cap').value;
-  if (cap > 50) return confirm(`Torque cap ${cap}% is above 50%. That is up to ~${(cap * 0.3).toFixed(0)} kg·cm on the joint. Go?`);
+  if (cap > 50) return confirm(`Torque cap ${cap}% of stall is above 50%. Go?`);
   return true;
 }
 function updCapWarn() {
@@ -247,7 +266,7 @@ updCapWarn();
 
 function moveBy(d) {
   if (!capOk()) return;
-  send(`move ${$('sid').value} ${d} ${$('speed').value} ${$('cap').value} ${$('trip').value} ${$('stall').value}`);
+  send(`move ${$('sid').value} ${d} ${spd('speed')} ${$('cap').value} ${trp('trip')} ${$('stall').value}`);
 }
 $('plus').onclick = () => moveBy(+$('step').value);
 $('minus').onclick = () => moveBy(-$('step').value);
@@ -259,8 +278,18 @@ $('goto').onclick = () => {
   moveBy(d);
 };
 $('relax').onclick = () => send('relax ' + $('sid').value);
-$('dock').onclick = () => send(`dock ${$('dspeed').value} ${$('dtrip').value}`);
-$('undock').onclick = () => send(`undock ${$('dspeed').value} ${$('dtrip').value}`);
+// Dock/undock to the angles in the page (new end effector), using the guarded move on ID 2.
+let undockPending = false, undockRelax = false;
+function dockTo(target, isUndock) {
+  if ($('sid').value !== '2') { logLine('set the status servo to 2 first, so the page knows where ID 2 is', 'bad'); return; }
+  if (lastPos === null) { logLine('no position yet: wait for a status update', 'bad'); return; }
+  const d = Math.round(+target - lastPos * 360 / 4096);
+  undockPending = isUndock && d !== 0;
+  if (!d) { logLine('already there (within 1°)', 'sys'); if (isUndock) send('relax 2'); return; }
+  send(`move 2 ${d} ${spd('dspeed')} 30 ${trp('dtrip')} 400`);
+}
+$('dock').onclick = () => dockTo($('dockdeg').value, false);
+$('undock').onclick = () => dockTo($('undockdeg').value, true);
 $('rainbow').onclick = () => send('rainbow');
 $('ledoff').onclick = () => send('off');
 $('endure').onclick = () => send('endure ' + $('esec').value);

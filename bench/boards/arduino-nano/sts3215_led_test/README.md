@@ -66,6 +66,9 @@ For buttons instead of typed commands, use the button page in
 `../../xiao-esp32-c5/sts3215_led_test/ui/` with `--port /dev/cu.usbserial-*`. Its board chip reads "–" here,
 because the Nano has no temperature sensor.
 
+Speed goes up to 3072 steps/s, the 12 V spec sheet's no-load 0.222 s/60° (it was capped at 300 before
+2026-11-25). Full speed has not been tried on the joints yet.
+
 Every move caps torque (register 48, RAM) and stops and holds where it is if the load reaches the trip or the
 joint stops moving for the stall window (0.4 s by default). Sending `s` stops a move part-way and holds. Endurance stops by itself at a servo temperature of 60 °C, a servo supply under
 10.5 V, a servo it cannot read, or 3 blocked moves.
